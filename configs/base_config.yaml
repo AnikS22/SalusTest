@@ -1,0 +1,139 @@
+# SALUS Base Configuration
+# Scalable settings for multi-GPU data collection and training
+
+system:
+  project_name: "SALUS"
+  experiment_name: "salus_v1"
+  seed: 42
+  num_gpus: 4  # 4x RTX 2080 Ti
+
+# GPU allocation strategy
+gpu_allocation:
+  vla_ensemble:
+    gpu_id: 0
+    num_models: 5  # 5x SmolVLA-450M (~4.5GB total)
+  predictor:
+    gpu_id: 1
+    batch_size: 256
+  manifold:
+    gpu_id: 2
+    batch_size: 256
+  synthesis:
+    gpu_id: 3
+    n_rollouts: 15
+
+# Data collection settings
+data_collection:
+  num_episodes: 500  # Total episodes to collect
+  max_episode_length: 200  # Max timesteps per episode
+  num_parallel_envs: 4  # Parallel environments per GPU
+  save_frequency: 10  # Save every N episodes
+  checkpoint_frequency: 50  # Checkpoint every N episodes
+
+  # Storage settings (scalable)
+  data_format: "zarr"  # zarr for efficient chunked storage
+  compression: "zstd"  # Fast compression
+  chunk_size: 1000  # Episodes per chunk
+
+  # Monitoring
+  log_frequency: 10  # Log every N steps
+  wandb_enabled: true
+  wandb_project: "salus-data-collection"
+
+# IsaacLab environment settings
+environment:
+  name: "FrankaPick Place"
+  num_envs: 4  # Parallel environments
+  episode_length: 200
+  control_freq: 30  # Hz
+  render: false  # Disable for faster collection
+
+  # Robot settings
+  robot:
+    name: "franka_panda"
+    dof: 7
+    control_mode: "position"  # joint position control
+
+  # Camera settings
+  cameras:
+    - name: "camera1"  # Front view
+      resolution: [256, 256]
+      position: [0.7, 0.0, 0.5]
+      target: [0.0, 0.0, 0.3]
+    - name: "camera2"  # Side view
+      resolution: [256, 256]
+      position: [0.0, 0.7, 0.5]
+      target: [0.0, 0.0, 0.3]
+    - name: "camera3"  # Top view
+      resolution: [256, 256]
+      position: [0.0, 0.0, 1.2]
+      target: [0.0, 0.0, 0.3]
+
+  # Task settings
+  task:
+    name: "pick_place"
+    object: "red_cube"
+    object_size: [0.05, 0.05, 0.05]
+    goal_position: [0.3, 0.5, 0.2]
+    success_threshold: 0.05  # meters
+
+    # Failure injection (for training)
+    perturbations:
+      enabled: true
+      frequency: 0.3  # 30% of episodes
+      types:
+        - "random_force"
+        - "object_slip"
+        - "sensor_noise"
+
+# VLA settings
+vla:
+  model_path: "~/models/smolvla/smolvla_base"
+  ensemble_size: 5
+  device: "cuda:0"
+
+  # Signal extraction
+  signal_dim: 12
+  history_length: 10
+
+# Predictor settings (for future training)
+predictor:
+  input_dim: 12
+  hidden_dims: [64, 128, 128, 64]
+  output_horizons: 4  # [200ms, 300ms, 400ms, 500ms]
+  failure_types: 4  # [collision, drop, timeout, other]
+
+  training:
+    batch_size: 256
+    learning_rate: 0.001
+    epochs: 100
+    early_stopping_patience: 10
+    device: "cuda:1"
+
+# Manifold settings (for future training)
+manifold:
+  obs_dim: 6
+  action_dim: 7
+  latent_dim: 8
+
+  training:
+    batch_size: 256
+    learning_rate: 0.0001
+    epochs: 200
+    margin: 0.5  # Triplet loss margin
+    device: "cuda:2"
+
+# Logging and monitoring
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  tensorboard: true
+  save_videos: false  # Save episode videos (expensive)
+  save_videos_frequency: 100  # Save every N episodes
+
+# Resource management (scalability)
+resources:
+  max_workers: 4  # Thread pool size
+  prefetch_factor: 2  # Data loading prefetch
+  pin_memory: true  # Faster GPU transfer
+  persistent_workers: true  # Keep workers alive

@@ -75,7 +75,7 @@ echo "[4/8] Installing PyTorch with CUDA 11.8..."
 pip install --upgrade pip setuptools wheel -q
 
 echo "  Installing PyTorch (this may take 5-10 minutes)..."
-pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 \
+pip install torch torchvision torchaudio \
     --index-url https://download.pytorch.org/whl/cu118 -q
 
 echo "✅ PyTorch installed"
