@@ -1,13 +1,13 @@
 """
-SALUS MVP Data Collection
+SALUS MVP Data Collection with SmolVLA
 Simple control loop that:
-  1. Runs TinyVLA ensemble
+  1. Runs SmolVLA ensemble (real pre-trained VLA!)
   2. Extracts 6D signals
   3. Records episodes with failure labels
   4. Saves to Zarr for training
 
 Usage:
-    python scripts/collect_episodes_mvp.py --num_episodes 500
+    python scripts/collect_episodes_mvp.py --num_episodes 500 --use_real_vla
 """
 
 import torch
@@ -22,7 +22,7 @@ from tqdm import tqdm
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from salus.core.vla.tinyvla_wrapper import TinyVLAEnsemble, SimpleSignalExtractor
+from salus.core.vla.smolvla_wrapper import SmolVLAEnsemble, SimpleSignalExtractor
 from salus.simulation.isaaclab_env import SimplePickPlaceEnv
 from salus.data.recorder import ScalableDataRecorder
 
@@ -55,19 +55,13 @@ def collect_episode(env, vla, signal_extractor, episode_id, max_steps):
     while not done.any() and step < max_steps:
         # VLA forward pass
         with torch.no_grad():
-            # Prepare observation for VLA
-            vla_obs = {
-                'image': obs['observation.images.camera1'],  # Use first camera
-                'state': obs['observation.state'],
-                'instruction': obs['task']
-            }
+            # Get image and state
+            image = obs['observation.images.camera1']  # (1, 3, 256, 256)
+            state = obs['observation.state']  # (1, 7)
+            instruction = obs['task'][0] if isinstance(obs['task'], list) else "Pick and place the object"
 
-            # Get action from ensemble
-            vla_output = vla(vla_obs)
-            action = vla_output['action']  # (1, 7)
-
-            # Extract signals (6D)
-            signals = signal_extractor.extract(vla_output)  # (1, 6)
+            # Get action and signals from SmolVLA ensemble
+            action, signals = vla.predict(image, state, instruction)  # (1, 7), (1, 6)
 
         # Step environment
         next_obs, done, info = env.step(action)
@@ -146,19 +140,19 @@ def main():
     print(f"\n🤖 Loading VLA...")
     if args.use_real_vla:
         try:
-            vla = TinyVLAEnsemble(
-                model_path="~/models/tinyvla/tinyvla-1b",
+            vla = SmolVLAEnsemble(
+                model_path="lerobot/smolvla_base",
                 ensemble_size=3,  # 3 models for MVP
                 device=args.device
             )
             signal_extractor = SimpleSignalExtractor()
-            print(f"   ✅ TinyVLA ensemble loaded")
+            print(f"   ✅ SmolVLA ensemble loaded (real pre-trained VLA!)")
         except Exception as e:
-            print(f"   ❌ Failed to load TinyVLA: {e}")
-            print(f"   💡 Install with:")
-            print(f"      cd ~/")
-            print(f"      git clone https://github.com/OpenDriveLab/TinyVLA.git")
-            print(f"      cd TinyVLA && pip install -e .")
+            print(f"   ❌ Failed to load SmolVLA: {e}")
+            print(f"   💡 Make sure lerobot is installed:")
+            print(f"      pip install lerobot transformers")
+            import traceback
+            traceback.print_exc()
             return
     else:
         print(f"   ⚠️  Using dummy VLA (random actions + signals)")

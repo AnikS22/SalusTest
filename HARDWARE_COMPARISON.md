@@ -81,3 +81,6 @@ Since TinyVLA-1B isn't available, I recommend:
 2. **For production**: Contact SALUS authors or train your own model
 3. **Do NOT use OpenVLA-7B** with 5-model ensemble on your hardware
 
+
+
+

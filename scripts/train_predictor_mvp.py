@@ -194,7 +194,8 @@ def main():
     print(f"   Parameters: {num_params:,}")
 
     # Create loss and optimizer
-    criterion = SimpleBCELoss(pos_weight=2.0)  # Weight failures higher
+    # With 6% positive samples, need pos_weight ~16 to balance
+    criterion = SimpleBCELoss(pos_weight=16.0)  # Weight failures MUCH higher for 94/6 imbalance
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     # Learning rate scheduler

@@ -232,3 +232,6 @@ python scripts/evaluate_mvp.py --checkpoint checkpoints/mvp_test/.../best_f1.pth
 **Last Updated**: January 2, 2026  
 **Status**: MVP Complete, Ready for Data Collection & Training
 
+
+
+

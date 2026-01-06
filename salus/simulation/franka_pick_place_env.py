@@ -1,6 +1,9 @@
 """
 Real IsaacLab Environment for SALUS
 Franka Panda pick-place task with 3-camera setup
+
+NOTE: This module expects AppLauncher to be created BEFORE importing this module!
+Do NOT create AppLauncher here - it must be created only once in the main script.
 """
 
 import torch
@@ -10,19 +13,7 @@ import sys
 from typing import Dict, Optional
 
 # IsaacLab should be installed in the isaaclab conda environment
-# No need to add to path if using pip-installed version
-
-# NOTE: AppLauncher must be created before importing other IsaacLab modules
-import argparse
-from isaaclab.app import AppLauncher
-
-# Setup headless config (will be overridden by command line args if provided)
-parser = argparse.ArgumentParser(description="Franka Pick-Place Environment")
-AppLauncher.add_app_launcher_args(parser)
-args_cli, unknown = parser.parse_known_args()
-
-# Create AppLauncher early to initialize IsaacSim
-app_launcher = AppLauncher(args_cli)
+# AppLauncher must be created BEFORE importing this module!
 
 
 class FrankaPickPlaceEnv:
@@ -39,6 +30,7 @@ class FrankaPickPlaceEnv:
 
     def __init__(
         self,
+        simulation_app=None,
         num_envs: int = 4,
         device: str = "cuda:0",
         render: bool = False,
@@ -48,6 +40,7 @@ class FrankaPickPlaceEnv:
         Initialize IsaacLab environment
 
         Args:
+            simulation_app: The SimulationApp instance (from AppLauncher.app)
             num_envs: Number of parallel environments
             device: CUDA device
             render: Enable visualization (slower)
@@ -76,7 +69,7 @@ class FrankaPickPlaceEnv:
             print(f"   ✅ IsaacLab {isaaclab.__version__} loaded")
 
             # Store reference to simulation app
-            self.simulation_app = app_launcher.app
+            self.simulation_app = simulation_app
 
             # Store imports for later use
             self.isaaclab = isaaclab
@@ -86,6 +79,12 @@ class FrankaPickPlaceEnv:
             self.InteractiveScene = InteractiveScene
             self.InteractiveSceneCfg = InteractiveSceneCfg
             self.FRANKA_CFG = FRANKA_PANDA_HIGH_PD_CFG
+
+            # Debug: Check FRANKA_CFG
+            print(f"   DEBUG: Original FRANKA_CFG type = {type(FRANKA_PANDA_HIGH_PD_CFG)}")
+            print(f"   DEBUG: Has actuators? {hasattr(FRANKA_PANDA_HIGH_PD_CFG, 'actuators')}")
+            if hasattr(FRANKA_PANDA_HIGH_PD_CFG, 'actuators'):
+                print(f"   DEBUG: actuators keys = {list(FRANKA_PANDA_HIGH_PD_CFG.actuators.keys())}")
 
             # Initialize simulation
             self._setup_simulation()
@@ -100,7 +99,10 @@ class FrankaPickPlaceEnv:
             print("   ✅ Real IsaacLab environment ready!")
 
         except Exception as e:
+            import traceback
             print(f"   ❌ Failed to initialize IsaacLab: {e}")
+            print(f"   Full traceback:")
+            traceback.print_exc()
             print("   Falling back to dummy environment...")
             self._init_dummy_mode()
 
@@ -127,12 +129,23 @@ class FrankaPickPlaceEnv:
         CameraCfg = self.CameraCfg
         FRANKA_CFG = self.FRANKA_CFG.replace(prim_path="/World/envs/env_.*/Robot")
 
+        # Debug: Check actuators
+        print(f"   DEBUG: FRANKA_CFG type = {type(FRANKA_CFG)}")
+        print(f"   DEBUG: FRANKA_CFG has actuators? {hasattr(FRANKA_CFG, 'actuators')}")
+        if hasattr(FRANKA_CFG, 'actuators'):
+            print(f"   DEBUG: actuators = {list(FRANKA_CFG.actuators.keys())}")
+
         @configclass
         class SceneCfg(InteractiveSceneCfg):
             """Configuration for pick-place scene"""
 
-            # Ground plane
-            ground = sim_utils.GroundPlaneCfg()
+            # Ground plane (using AssetBaseCfg with GroundPlaneCfg spawn)
+            from isaaclab.assets import AssetBaseCfg
+            ground = AssetBaseCfg(
+                prim_path="/World/ground",
+                spawn=sim_utils.GroundPlaneCfg(),
+                init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, 0.0)),
+            )
 
             # Franka Panda robot (using pre-configured settings)
             robot = FRANKA_CFG
@@ -212,10 +225,15 @@ class FrankaPickPlaceEnv:
             )
 
         # Create scene
+        print("   Creating scene configuration...")
         scene_cfg = SceneCfg(num_envs=self.num_envs, env_spacing=2.0)
+        print("   Creating InteractiveScene...")
         self.scene = self.InteractiveScene(scene_cfg)
 
         print(f"   ✅ Scene created with {self.num_envs} parallel environments")
+
+        # Note: sim.reset() will be called in the first reset() call, not here
+        self._scene_initialized = False
 
     def _init_dummy_mode(self):
         """Fallback to dummy mode if IsaacSim fails"""
@@ -256,12 +274,17 @@ class FrankaPickPlaceEnv:
             self.current_step = 0
             self.robot_state[env_ids] = 0.0
         else:
+            # Initialize simulation on first reset
+            if not self._scene_initialized:
+                print("   Initializing simulation (first reset)...")
+                self.sim.reset()
+                self._scene_initialized = True
+                print("   Simulation initialized!")
+
             # Real IsaacLab reset
-            # Reset robot to home pose
-            self.scene["robot"].set_joint_position_target(
-                torch.zeros(len(env_ids), 7, device=self.device),
-                env_ids=env_ids
-            )
+            # Reset robot to home pose (9 joints: 7 arm + 2 gripper fingers)
+            home_pos = self.scene["robot"].data.default_joint_pos[env_ids].clone()
+            self.scene["robot"].write_joint_state_to_sim(home_pos, torch.zeros_like(home_pos), env_ids=env_ids)
 
             # Reset cube position (randomize slightly)
             cube_pos = torch.tensor([[0.5, 0.0, 0.05]], device=self.device).repeat(len(env_ids), 1)
@@ -301,7 +324,15 @@ class FrankaPickPlaceEnv:
                 )
         else:
             # Real IsaacLab step
-            self.scene["robot"].set_joint_position_target(actions)
+            # Pad action from 7 DOF (arm) to 9 DOF (arm + 2 gripper fingers)
+            if actions.shape[-1] == 7:
+                # Add gripper commands (open gripper by default)
+                gripper_cmd = torch.ones(actions.shape[0], 2, device=actions.device) * 0.04
+                actions_full = torch.cat([actions, gripper_cmd], dim=-1)
+            else:
+                actions_full = actions
+
+            self.scene["robot"].set_joint_position_target(actions_full)
             self.scene.write_data_to_sim()
             self.sim.step()
             self.scene.update(self.sim.get_physics_dt())
@@ -333,18 +364,31 @@ class FrankaPickPlaceEnv:
             }
         else:
             # Real IsaacLab observations
-            robot_state = self.scene["robot"].data.joint_pos[:, :7]  # First 7 joints
+            # Get all joint positions (9 joints for Franka: 7 arm + 2 gripper)
+            robot_state = self.scene["robot"].data.joint_pos
 
-            # Get camera images
+            # Get camera images from Isaac Lab (format: [batch, height, width, channels])
             cam1_rgb = self.scene["camera_front"].data.output["rgb"]
             cam2_rgb = self.scene["camera_side"].data.output["rgb"]
             cam3_rgb = self.scene["camera_top"].data.output["rgb"]
 
+            # DEBUG: Print shapes
+            if not hasattr(self, '_debug_printed'):
+                print(f"   DEBUG: cam1_rgb shape = {cam1_rgb.shape}, dtype = {cam1_rgb.dtype}")
+                print(f"   DEBUG: cam1_rgb min/max = {cam1_rgb.min()}/{cam1_rgb.max()}")
+                self._debug_printed = True
+
+            # Convert from Isaac Lab format [B, H, W, C] to VLA format [B, C, H, W]
+            cam1_rgb = cam1_rgb.permute(0, 3, 1, 2)  # [B, H, W, C] -> [B, C, H, W]
+            cam2_rgb = cam2_rgb.permute(0, 3, 1, 2)
+            cam3_rgb = cam3_rgb.permute(0, 3, 1, 2)
+
+            # Return only the first 7 joints (arm) for VLA compatibility
             return {
                 'observation.images.camera1': cam1_rgb,
                 'observation.images.camera2': cam2_rgb,
                 'observation.images.camera3': cam3_rgb,
-                'observation.state': robot_state,
+                'observation.state': robot_state[:, :7],  # Only arm joints for VLA
                 'task': 'pick up the red cube and place it in the blue zone'
             }
 

@@ -384,3 +384,6 @@ if __name__ == "__main__":
     print("   2. Create data collection script")
     print("   3. Run data collection with real observations")
     print("\n✨ The VLA wrapper will work with real environment observations")
+
+
+
