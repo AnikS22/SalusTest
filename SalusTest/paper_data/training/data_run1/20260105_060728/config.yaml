@@ -1,0 +1,138 @@
+data_collection:
+  checkpoint_frequency: 50
+  chunk_size: 1000
+  compression: zstd
+  data_format: zarr
+  log_frequency: 10
+  max_episode_length: 200
+  num_episodes: 500
+  num_parallel_envs: 4
+  save_frequency: 10
+  wandb_enabled: true
+  wandb_project: salus-data-collection
+environment:
+  cameras:
+  - name: camera1
+    position:
+    - 0.7
+    - 0.0
+    - 0.5
+    resolution:
+    - 256
+    - 256
+    target:
+    - 0.0
+    - 0.0
+    - 0.3
+  - name: camera2
+    position:
+    - 0.0
+    - 0.7
+    - 0.5
+    resolution:
+    - 256
+    - 256
+    target:
+    - 0.0
+    - 0.0
+    - 0.3
+  - name: camera3
+    position:
+    - 0.0
+    - 0.0
+    - 1.2
+    resolution:
+    - 256
+    - 256
+    target:
+    - 0.0
+    - 0.0
+    - 0.3
+  control_freq: 30
+  episode_length: 200
+  name: FrankaPick Place
+  num_envs: 4
+  render: false
+  robot:
+    control_mode: position
+    dof: 7
+    name: franka_panda
+  task:
+    goal_position:
+    - 0.3
+    - 0.5
+    - 0.2
+    name: pick_place
+    object: red_cube
+    object_size:
+    - 0.05
+    - 0.05
+    - 0.05
+    perturbations:
+      enabled: true
+      frequency: 0.3
+      types:
+      - random_force
+      - object_slip
+      - sensor_noise
+    success_threshold: 0.05
+gpu_allocation:
+  manifold:
+    batch_size: 256
+    gpu_id: 2
+  predictor:
+    batch_size: 256
+    gpu_id: 1
+  synthesis:
+    gpu_id: 3
+    n_rollouts: 15
+  vla_ensemble:
+    gpu_id: 0
+    num_models: 5
+logging:
+  level: INFO
+  log_dir: logs
+  save_videos: false
+  save_videos_frequency: 100
+  tensorboard: true
+manifold:
+  action_dim: 7
+  latent_dim: 8
+  obs_dim: 6
+  training:
+    batch_size: 256
+    device: cuda:2
+    epochs: 200
+    learning_rate: 0.0001
+    margin: 0.5
+predictor:
+  failure_types: 4
+  hidden_dims:
+  - 64
+  - 128
+  - 128
+  - 64
+  input_dim: 12
+  output_horizons: 4
+  training:
+    batch_size: 256
+    device: cuda:1
+    early_stopping_patience: 10
+    epochs: 100
+    learning_rate: 0.001
+resources:
+  max_workers: 4
+  persistent_workers: true
+  pin_memory: true
+  prefetch_factor: 2
+system:
+  experiment_name: salus_v1
+  num_gpus: 4
+  project_name: SALUS
+  seed: 42
+vla:
+  device: cuda:0
+  ensemble_size: 1
+  history_length: 10
+  model_path: /home/mpcr/models/smolvla/smolvla_base
+  signal_dim: 12

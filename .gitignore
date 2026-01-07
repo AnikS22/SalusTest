@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv*/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Data
+data/
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.zarr/
+
+# Models
+models/
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+
+# Logs
+logs/
+*.log
+wandb/
+tensorboard/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Backup files
+*.bak
+*.tar.gz
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Test outputs
+test_output/
+tmp/
+temp/
+out/
+
+# HPC specific
+*.o
+*.e
+slurm-*.out
+
+# VLA models (downloaded separately)
+TinyVLA/
+OpenVLA/
+~/models/
+
+# Simulation cache
+.mujoco/
+=stealth,
+,
