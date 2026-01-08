@@ -95,6 +95,7 @@ class FrankaPickPlaceEnv:
             # Initialize episode tracking
             self.episode_length_buf = torch.zeros(num_envs, dtype=torch.int, device=device)
             self.reset_buf = torch.ones(num_envs, dtype=torch.bool, device=device)
+            self.goal_pos = None
 
             print("   ✅ Real IsaacLab environment ready!")
 
@@ -269,6 +270,8 @@ class FrankaPickPlaceEnv:
             env_ids=env_ids
         )
 
+        self._sample_goal_positions(env_ids)
+
         return self._get_observation()
 
     def step(self, actions: torch.Tensor):
@@ -350,10 +353,12 @@ class FrankaPickPlaceEnv:
 
         # Real success detection
         cube_pos = self.scene["cube"].data.root_pos_w
-        goal_pos = torch.tensor([0.3, 0.5, 0.2], device=self.device)
+        if self.goal_pos is None:
+            self._sample_goal_positions(torch.arange(self.num_envs, device=self.device))
+        goal_pos = self.goal_pos
 
         # Success: cube within 5cm of goal
-        dist_to_goal = torch.norm(cube_pos - goal_pos.unsqueeze(0), dim=-1)
+        dist_to_goal = torch.norm(cube_pos - goal_pos, dim=-1)
         success = dist_to_goal < 0.05
 
         # Failure detection
@@ -370,6 +375,19 @@ class FrankaPickPlaceEnv:
             'failure_type': failure_type,
             'episode_length': self.episode_length_buf.clone()
         }
+
+    def _sample_goal_positions(self, env_ids: torch.Tensor):
+        """Sample goal positions to create a changing scene."""
+        if self.goal_pos is None:
+            self.goal_pos = torch.zeros(self.num_envs, 3, device=self.device)
+
+        base = torch.tensor([0.3, 0.5, 0.2], device=self.device)
+        noise = torch.zeros(len(env_ids), 3, device=self.device)
+        noise[:, 0] = torch.randn(len(env_ids), device=self.device) * 0.05
+        noise[:, 1] = torch.randn(len(env_ids), device=self.device) * 0.05
+        noise[:, 2] = torch.randn(len(env_ids), device=self.device) * 0.02
+
+        self.goal_pos[env_ids] = base + noise
 
     def close(self):
         """Clean up"""
