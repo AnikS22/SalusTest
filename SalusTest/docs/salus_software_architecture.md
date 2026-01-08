@@ -74,7 +74,7 @@ guardian/
 │       ├── __init__.py
 │       ├── wrapper.py        # Ensemble VLA with internals
 │       ├── attention.py      # Attention extraction
-│       └── uncertainty.py    # Epistemic uncertainty
+│       └── uncertainty.py    # Model uncertainty
 │
 ├── data/                      # Data handling
 │   ├── __init__.py
@@ -253,7 +253,7 @@ class VLAEnsemble(nn.Module):
                 'attention': torch.stack(attentions, dim=1),
                 'hidden': torch.stack(hiddens, dim=1),
                 'action_mean': actions.mean(dim=1),
-                'action_var': actions.var(dim=1)  # Epistemic uncertainty
+                'action_var': actions.var(dim=1)  # Model uncertainty
             }
             return actions, internals
         else:
@@ -292,7 +292,7 @@ class SignalExtractor:
         batch_size = obs['rgb'].shape[0]
         features = torch.zeros(batch_size, 12, device=self.device)
 
-        # 1. Epistemic uncertainty
+        # 1. Model uncertainty
         features[:, 0] = vla_internals['action_var'].mean(dim=1)
         features[:, 1] = vla_internals['action_var'].max(dim=1)[0]
 

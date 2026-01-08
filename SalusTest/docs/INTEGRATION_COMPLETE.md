@@ -157,7 +157,7 @@ Loading user config...
 - **Device:** Single GPU (cuda:0)
 
 ### VLA Inference
-- **Speed:** ~10 steps/second with 5-model ensemble
+- **Speed:** ~10 steps/second with single VLA model
 - **Episode (200 steps):** ~750 seconds (12.5 minutes)
 - **Throughput:** Real-time control at 30Hz with ensemble
 
@@ -172,7 +172,7 @@ Loading user config...
 ## Technical Stack
 
 ### Models
-- **VLA:** SmolVLA-450M (5-model ensemble)
+- **VLA:** SmolVLA-450M (single VLA model)
 - **Tokenizer:** Qwen2-VL from HuggingFace
 - **Action Dim:** 7 (Franka Panda joints)
 - **Signal Dim:** 12 (uncertainty + trajectory features)
@@ -461,7 +461,7 @@ python salus/simulation/franka_pick_place_env.py
 
 **Excellent work!** The complete SALUS + SmolVLA integration is operational. The foundation for safety research with vision-language-action models is ready! 🚀
 
-**Key Achievement:** Successfully integrated a 5-model ensemble of SmolVLA-450M models with full data collection pipeline, achieving real-time robot control with epistemic uncertainty quantification.
+**Key Achievement:** Successfully integrated a single VLA model of SmolVLA-450M models with full data collection pipeline, achieving real-time robot control with model uncertainty quantification.
 
 ---
 

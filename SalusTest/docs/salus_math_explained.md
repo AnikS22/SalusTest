@@ -25,7 +25,7 @@ Observation (o_t):
 ├── Joint velocities: (13,) - how fast arm is moving
 └── Gripper force: (6,) - force/torque at wrist
 
-VLA Internals (from ensemble of 5 models):
+VLA Internals (from single VLA model):
 ├── Action proposals: (5, 13) - what each model wants to do
 ├── Attention maps: (5, 12, 196, 196) - where models are "looking"
 └── Hidden states: (5, 196, 768) - internal representations
@@ -37,7 +37,7 @@ You compute a **12-dimensional feature vector** that captures "something is abou
 
 ```python
 signals = [
-    # Epistemic Uncertainty (2 features)
+    # Model Uncertainty (2 features)
     σ²_ensemble,      # How much do the 5 VLA models disagree?
     σ²_action,        # Variance of proposed actions
 
@@ -60,7 +60,7 @@ signals = [
 **Math**:
 
 ```
-Epistemic Uncertainty:
+Model Uncertainty:
   Given 5 VLA models: π₁, π₂, π₃, π₄, π₅
   Each proposes action: a₁, a₂, a₃, a₄, a₅
 

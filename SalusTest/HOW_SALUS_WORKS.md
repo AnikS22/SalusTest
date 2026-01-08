@@ -49,7 +49,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │  3. SIGNAL EXTRACTION (6D Uncertainty Features)              │
 │                                                              │
-│     [1] Epistemic Uncertainty: 0.45                          │
+│     [1] Model Uncertainty: 0.45                          │
 │         → How much the models disagree                       │
 │                                                              │
 │     [2] Action Magnitude: 0.82                               │
@@ -162,7 +162,7 @@
 
 **Why these specific 6 signals?**
 
-#### Signal 1: Epistemic Uncertainty
+#### Signal 1: Model Uncertainty
 ```python
 epistemic = variance(action_1, action_2, action_3)
 ```
@@ -452,7 +452,7 @@ while robot_running:
 #### 1. Uncertainty Predicts Failure
 ```
 When VLA models disagree:
-  High epistemic uncertainty
+  High model uncertainty
   → Model is confused
   → More likely to fail
 

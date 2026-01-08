@@ -75,7 +75,7 @@ Estimated completion: ~1.8 hours (around 11:15 PM)
 **Dummy VLA generates**:
 - Random actions: `torch.randn(1, 7) * 0.1`
 - Random action variance: `torch.rand(1, 7) * 0.1`
-- Random epistemic uncertainty: `torch.rand(1) * 0.5`
+- Random model uncertainty: `torch.rand(1) * 0.5`
 
 ---
 
@@ -101,7 +101,7 @@ episode_metadata = {
 ```
 
 ### 6D Signal Features
-1. **Epistemic uncertainty** - Ensemble variance (dummy random)
+1. **Model uncertainty** - Ensemble variance (dummy random)
 2. **Action magnitude** - L2 norm of action
 3. **Action variance** - Mean variance across joints
 4. **Action smoothness** - Change from previous action
@@ -213,7 +213,7 @@ python scripts/collect_episodes_mvp.py \
 
 **Benefits**:
 - Real VLA actions (learned policy)
-- Real uncertainty signals (ensemble variance)
+- Real uncertainty signals (internal uncertainty signals)
 - Still 50% random success (dummy environment)
 - Better signal-failure correlation
 - Expected performance: 0.70-0.85 F1

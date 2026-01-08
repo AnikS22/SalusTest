@@ -2,8 +2,8 @@
 Collect local training data with VLA control for SALUS.
 
 Collects episodes with:
-- VLA controlling robot
-- 18D signals extracted every step
+- VLA controlling robot (single model)
+- 12D signals extracted every step
 - Success/failure labels
 - Stored in Zarr format
 
@@ -38,7 +38,8 @@ app_launcher = AppLauncher(args)
 simulation_app = app_launcher.app
 
 from salus.simulation.franka_pick_place_env import FrankaPickPlaceEnv
-from salus.core.vla.wrapper import SmolVLAEnsemble, EnhancedSignalExtractor
+from salus.core.vla.wrapper import SmolVLAEnsemble
+from salus.core.vla.single_model_extractor import SingleModelSignalExtractor
 
 print("\n" + "="*70)
 print("LOCAL DATA COLLECTION FOR SALUS")
@@ -62,7 +63,7 @@ root = zarr.open(str(data_path), mode='w')
 
 # Create datasets
 max_total_steps = args.num_episodes * args.max_steps
-signals_ds = root.create_dataset('signals', shape=(0, 18), chunks=(1000, 18), dtype='f4')
+signals_ds = root.create_dataset('signals', shape=(0, 12), chunks=(1000, 12), dtype='f4')
 actions_ds = root.create_dataset('actions', shape=(0, 6), chunks=(1000, 6), dtype='f4')
 robot_state_ds = root.create_dataset('robot_state', shape=(0, 7), chunks=(1000, 7), dtype='f4')
 episode_ids_ds = root.create_dataset('episode_id', shape=(0,), chunks=(1000,), dtype='i4')
@@ -73,18 +74,18 @@ done_ds = root.create_dataset('done', shape=(0,), chunks=(1000,), dtype='bool')
 print(f"✅ Zarr storage ready")
 
 # Load VLA
-print(f"\nLoading VLA ensemble...")
+print(f"\nLoading VLA (single model to avoid GPU OOM)...")
 vla = SmolVLAEnsemble(
     str(Path.home() / "models/smolvla/smolvla_base"),
-    ensemble_size=3,
+    ensemble_size=1,  # Single model to fit in GPU memory
     device=device
 )
 print(f"✅ VLA loaded")
 
-# Signal extractor
+# Signal extractor (12D from single model)
 print(f"\nInitializing signal extractor...")
-signal_extractor = EnhancedSignalExtractor(device)
-print(f"✅ Signal extractor ready")
+signal_extractor = SingleModelSignalExtractor(device)
+print(f"✅ Signal extractor ready (12D single-model signals)")
 
 # Environment
 print(f"\nCreating environment...")
@@ -125,11 +126,11 @@ for episode in range(args.num_episodes):
 
     # Run episode
     for t in range(args.max_steps):
-        # Prepare VLA observation
+        # Prepare VLA observation (convert images to float32 and normalize)
         obs_vla = {
-            'observation.images.camera1': obs['observation.images.camera1'],
-            'observation.images.camera2': obs['observation.images.camera2'],
-            'observation.images.camera3': obs['observation.images.camera3'],
+            'observation.images.camera1': obs['observation.images.camera1'].float() / 255.0,
+            'observation.images.camera2': obs['observation.images.camera2'].float() / 255.0,
+            'observation.images.camera3': obs['observation.images.camera3'].float() / 255.0,
             'observation.state': obs['observation.state'][:, :6],
             'task': ['Pick up the red cube and place it in the blue zone']
         }
@@ -156,7 +157,12 @@ for episode in range(args.num_episodes):
 
         # Check done
         if done[0]:
-            episode_data['success'] = info.get('success', [False])[0]
+            success_val = info.get('success', [False])[0]
+            # Convert to Python bool if it's a tensor
+            if isinstance(success_val, torch.Tensor):
+                episode_data['success'] = bool(success_val.cpu().item())
+            else:
+                episode_data['success'] = bool(success_val)
             episode_data['done'] = True
             break
 
@@ -216,7 +222,7 @@ root.attrs['num_episodes'] = args.num_episodes
 root.attrs['total_steps'] = total_steps
 root.attrs['successes'] = successes
 root.attrs['failures'] = failures
-root.attrs['signal_dim'] = 18
+root.attrs['signal_dim'] = 12
 root.attrs['action_dim'] = 6
 root.attrs['collection_date'] = timestamp
 

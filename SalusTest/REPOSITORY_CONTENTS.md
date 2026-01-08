@@ -16,7 +16,7 @@ This repository contains **SALUS MVP implementation** - a runtime safety system 
 #### ✅ VLA Integration (`salus/core/vla/`)
 - **`wrapper.py`** - VLA ensemble wrapper (original implementation)
 - **`tinyvla_wrapper.py`** - TinyVLA-specific ensemble wrapper (MVP)
-  - 3-model ensemble for epistemic uncertainty
+  - single VLA model for model uncertainty
   - Signal extraction (6D features)
   - ~9GB VRAM usage
 
@@ -175,7 +175,7 @@ This repository contains **SALUS MVP implementation** - a runtime safety system 
 
 ## ✅ What's Implemented (MVP)
 
-1. ✅ **TinyVLA Ensemble Wrapper** - 3-model ensemble with signal extraction
+1. ✅ **TinyVLA Ensemble Wrapper** - single VLA model with signal extraction
 2. ✅ **MVP Predictor** - Simple MLP predictor (6D → 4D)
 3. ✅ **Data Collection Pipeline** - Episode recording with Zarr storage
 4. ✅ **Training Infrastructure** - Dataset loading, training loop, evaluation

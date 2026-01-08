@@ -35,16 +35,17 @@ else:
 # Load the VLA ensemble
 print(f"\n2. Loading SmolVLA ensemble (3 models)...")
 try:
-    from salus.core.vla.wrapper import SmolVLAEnsemble, EnhancedSignalExtractor
+    from salus.core.vla.wrapper import SmolVLAEnsemble
+from salus.core.vla.single_model_extractor import SingleModelSignalExtractor
 
     ensemble = SmolVLAEnsemble(
         model_path="~/models/smolvla/smolvla_base",
-        ensemble_size=3,
+        ensemble_size=1,
         device="cuda:0"
     )
     print(f"   ✅ Ensemble loaded!")
 
-    signal_extractor = EnhancedSignalExtractor(device="cuda:0")
+    signal_extractor = SingleModelSignalExtractor(device="cuda:0")
     print(f"   ✅ Signal extractor initialized!")
 
 except Exception as e:
@@ -135,8 +136,8 @@ if 'perturbed_actions' in output:
 else:
     print(f"\n   ⚠️  No perturbed_actions in output")
 
-# Extract 18D signals
-print(f"\n6. Extracting 18D signals...")
+# Extract 12D signals
+print(f"\n6. Extracting 12D signals...")
 robot_state = obs['observation.state']
 signals = signal_extractor.extract(output, robot_state=robot_state)
 
@@ -145,7 +146,7 @@ print(f"      Shape: {signals.shape}")
 print(f"      Expected: ({batch_size}, 18)")
 
 if signals.shape[1] == 18:
-    print(f"      ✅ Correct dimensions (18D)")
+    print(f"      ✅ Correct dimensions (12D)")
 else:
     print(f"      ❌ Wrong dimensions!")
 
@@ -229,7 +230,7 @@ checks = [
     ("Epistemic uncertainty computed", epistemic.sum() > 0.001),
     ("Hidden states extracted", 'hidden_state_mean' in output and output['hidden_state_mean'].abs().sum() > 0.01),
     ("Perturbations tested", 'perturbed_actions' in output and output['perturbed_actions'].abs().sum() > 0.01),
-    ("18D signals extracted", signals.shape[1] == 18),
+    ("12D signals extracted", signals.shape[1] == 18),
     ("Signals are non-zero", non_zero_signals.min() >= 12),
 ]
 

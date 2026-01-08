@@ -27,11 +27,11 @@
 
 **Options with OpenVLA**:
 1. **Reduce ensemble to 2 models**: 2× 14GB = 28GB (spread across GPUs 0+1)
-   - Less epistemic uncertainty (weaker ensemble)
+   - Less model uncertainty (weaker ensemble)
    - Still functional but not optimal
 
 2. **Single model only**: 1× 14GB = 14GB (doesn't fit on one 11GB GPU)
-   - No ensemble = no epistemic uncertainty signal
+   - No ensemble = no model uncertainty signal
    - Defeats the purpose of SALUS
 
 3. **Spread across GPUs**: 5 models across all 4 GPUs
@@ -79,7 +79,7 @@ Since TinyVLA-1B isn't available, I recommend:
 
 1. **For immediate development**: Create mock/placeholder VLA wrapper
 2. **For production**: Contact SALUS authors or train your own model
-3. **Do NOT use OpenVLA-7B** with 5-model ensemble on your hardware
+3. **Do NOT use OpenVLA-7B** with single VLA model on your hardware
 
 
 

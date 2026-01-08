@@ -11,7 +11,7 @@
 
 SALUS (Safety Assurance for Learning-based Uncertainty-aware Systems) is now operational with:
 
-1. ✅ **VLA Ensemble** - SmolVLA-450M×5 for epistemic uncertainty
+1. ✅ **VLA Ensemble** - SmolVLA-450M×5 for model uncertainty
 2. ✅ **Signal Extractor** - 12D uncertainty features from ensemble
 3. ✅ **Failure Predictor** - Neural network predicting multi-horizon failures
 4. ✅ **Adaptation Module** - Intelligent intervention system
@@ -35,19 +35,19 @@ SALUS (Safety Assurance for Learning-based Uncertainty-aware Systems) is now ope
 │                   SmolVLA-450M × 5                               │
 │                                                                   │
 │  Input: Images + State + Language                               │
-│  Output: Actions (7D) + Variance (epistemic uncertainty)        │
+│  Output: Actions (7D) + Variance (model uncertainty)        │
 │  VRAM: ~4.5GB                                                    │
 └────────────────────────┬─────────────────────────────────────────┘
                          │
                          ├──► action_mean (7D)
-                         └──► action_variance (epistemic uncertainty)
+                         └──► action_variance (model uncertainty)
                          │
                          ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │              SIGNAL EXTRACTOR (12D Features)                      │
 │                                                                   │
 │  Extracts uncertainty signals:                                   │
-│   1. Epistemic uncertainty (ensemble variance)                   │
+│   1. Model uncertainty (internal uncertainty signals)                   │
 │   2. Action magnitude                                            │
 │   3. Action variance (mean across dims)                          │
 │   4. Action smoothness (change from prev)                        │
@@ -143,8 +143,8 @@ SALUS (Safety Assurance for Learning-based Uncertainty-aware Systems) is now ope
 - **Adaptive thresholds** prevent over/under-intervention
 - **State tracking** prevents infinite loops
 
-### 3. Epistemic Uncertainty 📊
-- Uses **ensemble variance** to quantify VLA confidence
+### 3. Model Uncertainty 📊
+- Uses **internal uncertainty signals** to quantify VLA confidence
 - Distinguishes "model unsure" from "risky action"
 - Captures both aleatoric (environment) and epistemic (model) uncertainty
 
@@ -385,7 +385,7 @@ for step in range(max_steps):
 
 ### Why SALUS Works
 
-1. **Epistemic uncertainty from ensemble**
+1. **Model uncertainty from ensemble**
    - VLA ensemble naturally provides confidence estimates
    - No retraining needed - use existing models
    - Variance correlates with failure risk

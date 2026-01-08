@@ -89,7 +89,7 @@ with torch.no_grad():
 ### 5. Signal Extraction ✅
 
 Extracts 12D safety-relevant features:
-- Epistemic uncertainty (from ensemble variance)
+- Model uncertainty (from internal uncertainty signals)
 - Action magnitude
 - Action smoothness
 - Layer activations (when available)

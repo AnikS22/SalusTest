@@ -73,7 +73,7 @@ The robot is only needed to validate **sim-to-real transfer** (domain gap), whic
 
 | Component | What Local Dev Validates | Paper Claim | Status |
 |-----------|--------------------------|-------------|--------|
-| **VLA Ensemble** | 5 models fit on GPU 0 (11GB), epistemic uncertainty extraction works | Ensemble provides σ² signals for predictor | ✅ Testable |
+| **VLA Ensemble** | 5 models fit on GPU 0 (11GB), model uncertainty extraction works | Ensemble provides σ² signals for predictor | ✅ Testable |
 | **Signal Extractor** | Can compute 12D feature vectors from VLA internals + depth | 4 signal modalities (epistemic, attention, trajectory, environment) | ✅ Testable |
 | **Multi-Horizon Predictor** | Achieves F1 > 0.70 on simulated failures | F1 = 0.866 at 300ms horizon | ✅ Testable |
 | **Safety Manifold** | 8D latent space reduces sampling from 50→15 candidates | 3.1× speedup (87ms → 28ms synthesis) | ✅ Testable |
@@ -170,7 +170,7 @@ sim-to-real transfer results.
 ```latex
 \textbf{VLA Model Selection.} We evaluate SALUS with two VLA variants:
 (1) \textbf{TinyVLA-1B} \cite{tinyvla2025} for development and ablations
-(ensemble of 5 models fits on single 11GB GPU), and (2) \textbf{OpenVLA-7B}
+(single VLA model fits on single 11GB GPU), and (2) \textbf{OpenVLA-7B}
 \cite{kim2024openvla} for final real-robot results reported in
 Section~\ref{sec:results}. Both models are pretrained on Open X-Embodiment
 data \cite{openx2023} and frozen during SALUS deployment.
@@ -179,7 +179,7 @@ data \cite{openx2023} and frozen during SALUS deployment.
 ### Discrepancy 3: Signal Extraction Completeness
 
 **Paper Claims (Section 3.1)**:
-> "We extract four complementary signal modalities: (1) epistemic uncertainty
+> "We extract four complementary signal modalities: (1) model uncertainty
 > (σ²_ensemble, σ²_action), (2) attention degradation (H_attention, d_attention),
 > (3) trajectory divergence (d_traj, d_learned), (4) environmental risk
 > (d_obs, F_gripper, occlusion, tactile_slip)."
@@ -188,7 +188,7 @@ data \cite{openx2023} and frozen during SALUS deployment.
 ```python
 features = torch.zeros(batch_size, 12, device=self.device)
 
-# 1. Epistemic Uncertainty (2 features) ✅
+# 1. Model Uncertainty (2 features) ✅
 features[:, 0] = action_var.mean(dim=1)
 features[:, 1] = action_var.max(dim=1)[0]
 
@@ -228,7 +228,7 @@ features[:, 6] = self._obstacle_distance(depth)  # ✅
 
 ```latex
 \subsection{Signal Implementation Timeline}
-Signal extraction was implemented in stages: (1) Week 1-3: Epistemic uncertainty
+Signal extraction was implemented in stages: (1) Week 1-3: Model uncertainty
 and attention signals, (2) Week 4: Trajectory divergence and gripper force,
 (3) Week 5: Occlusion estimation via SAM \cite{kirillov2023sam}. Ablation
 studies (Section~\ref{sec:ablation}) show trajectory divergence has highest
@@ -383,7 +383,7 @@ By the end of local development (Week 12), you should have:
 | Synthesis latency | <30ms | <50ms (target <30ms) | Week 9-10 |
 | Failure rate reduction | 50% | >40% (target >45%) | Week 11-12 |
 | Safe action yield | 68% | >60% (target >65%) | Week 9-10 |
-| Epistemic uncertainty σ² | Measured | Implemented ✅ | Week 3 |
+| Model uncertainty σ² | Measured | Implemented ✅ | Week 3 |
 | Attention entropy H | Measured | Implemented ✅ | Week 3 |
 | Trajectory divergence d | Measured | TODO (Week 4) | Week 4 |
 | Environment risk d_obs | Measured | Implemented ✅ | Week 3 |

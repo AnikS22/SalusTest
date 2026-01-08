@@ -36,13 +36,13 @@ SALUS MVP is a simplified failure prediction system for robotic manipulation tas
 ┌─────────────────────────────────────────┐
 │  TinyVLA ENSEMBLE (3 models)            │
 │  • TinyVLA-1B × 3                       │
-│  • Epistemic uncertainty from variance  │
+│  • Model uncertainty from variance  │
 └──────────────┬──────────────────────────┘
                │
                ▼
 ┌─────────────────────────────────────────┐
 │  SIGNAL EXTRACTOR (6D)                  │
-│  1. Epistemic uncertainty               │
+│  1. Model uncertainty               │
 │  2. Action magnitude                     │
 │  3. Action variance                      │
 │  4. Action smoothness                    │
@@ -253,7 +253,7 @@ TinyVLAEnsemble(
 SimpleSignalExtractor()
 
 # Extracts:
-# 1. Epistemic uncertainty (ensemble variance)
+# 1. Model uncertainty (internal uncertainty signals)
 # 2. Action magnitude (L2 norm)
 # 3. Action variance (mean across dims)
 # 4. Action smoothness (change from previous)

@@ -1,0 +1,158 @@
+\documentclass[border=10pt]{standalone}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{amsmath}
+
+\begin{document}
+
+\begin{algorithm}[H]
+\caption{Single-Model Signal Extraction}
+\label{alg:signal_extraction}
+\begin{algorithmic}[1]
+\REQUIRE VLA forward pass output: $\mathbf{a}_t$ (action), $\boldsymbol{\ell}_t$ (logits), $\mathbf{h}_t$ (hidden state)
+\REQUIRE Robot state: $\mathbf{s}_t$
+\REQUIRE History buffers: $\{\mathbf{a}_{t-k}\}_{k=1}^K$, $\{\mathbf{h}_{t-k}\}_{k=1}^K$
+\ENSURE 12D uncertainty signal $\mathbf{z}_t \in \mathbb{R}^{12}$
+
+\STATE \textbf{// Temporal Action Dynamics (4D)}
+\STATE $z_1 \gets \|\mathbf{a}_t - \mathbf{a}_{t-1}\|_2$ \COMMENT{Volatility}
+\STATE $z_2 \gets \|\mathbf{a}_t\|_2$ \COMMENT{Magnitude}
+\STATE $z_3 \gets \|\mathbf{a}_t - 2\mathbf{a}_{t-1} + \mathbf{a}_{t-2}\|_2$ \COMMENT{Acceleration}
+\STATE $z_4 \gets \|\mathbf{a}_t - \frac{1}{K}\sum_{k=1}^K \mathbf{a}_{t-k}\|_2$ \COMMENT{Divergence}
+
+\STATE
+\STATE \textbf{// VLA Internal Stability (3D)}
+\IF{$\mathbf{h}_t$ is available}
+    \STATE $z_5 \gets \|\mathbf{h}_t - \mathbf{h}_{t-1}\|_2$ \COMMENT{Latent drift}
+    \STATE $z_6 \gets \|\mathbf{h}_t\|_2 / \mu_{\|\mathbf{h}\|}$ \COMMENT{Norm spike}
+    \STATE $z_7 \gets \|(\mathbf{h}_t - \boldsymbol{\mu}_\mathbf{h})/\boldsymbol{\sigma}_\mathbf{h}\|_2$ \COMMENT{OOD distance}
+    \STATE Update EMA statistics: $\boldsymbol{\mu}_\mathbf{h}, \boldsymbol{\sigma}_\mathbf{h}, \mu_{\|\mathbf{h}\|}$
+\ELSE
+    \STATE $z_5, z_6, z_7 \gets 0$ \COMMENT{Graceful degradation}
+\ENDIF
+
+\STATE
+\STATE \textbf{// Model Uncertainty (2D)}
+\IF{$\boldsymbol{\ell}_t$ is available}
+    \STATE $\mathbf{p}_t \gets \text{softmax}(\boldsymbol{\ell}_t)$
+    \STATE $z_8 \gets -\sum_j p_{t,j} \log(p_{t,j} + 10^{-10})$ \COMMENT{Entropy (PRIMARY)}
+    \STATE $z_9 \gets \max_j p_{t,j}$ \COMMENT{Max probability}
+\ELSE
+    \STATE $z_8, z_9 \gets 0$ \COMMENT{Graceful degradation}
+\ENDIF
+
+\STATE
+\STATE \textbf{// Physics Reality Checks (2D)}
+\STATE $\Delta\mathbf{s}_t \gets \mathbf{s}_t - \mathbf{s}_{t-1}$
+\STATE $z_{10} \gets \|\Delta\mathbf{s}_t - \mathbf{a}_{t-1}\|_2$ \COMMENT{Execution mismatch}
+\STATE $z_{11} \gets \max(0, -\min_j(\min(s_{t,j} - s_{\min,j}, s_{\max,j} - s_{t,j})) + 0.5)$ \COMMENT{Constraint margin}
+
+\STATE
+\STATE \textbf{// Temporal Consistency (1D)}
+\STATE $z_{12} \gets \text{std}(\{z_1^{(t-k)}\}_{k=0}^{K-1})$ \COMMENT{Volatility stability}
+
+\STATE
+\STATE \textbf{// Update history buffers}
+\STATE Append $\mathbf{a}_t$ to action history
+\STATE Append $\mathbf{h}_t$ to hidden state history (if available)
+\STATE Append $z_1$ to volatility history
+
+\STATE
+\RETURN $\mathbf{z}_t = [z_1, z_2, \ldots, z_{12}]^\top$
+\end{algorithmic}
+\end{algorithm}
+
+\vspace{1cm}
+
+\begin{algorithm}[H]
+\caption{Multi-Horizon Temporal Forecasting}
+\label{alg:temporal_forecasting}
+\begin{algorithmic}[1]
+\REQUIRE Temporal window $\mathbf{Z}_t = [\mathbf{z}_{t-T+1}, \ldots, \mathbf{z}_t] \in \mathbb{R}^{T \times 12}$
+\REQUIRE Trained model parameters: $W_{\text{conv}}, W_{\text{gru}}, W_{\text{out}}, \mathbf{b}_{\text{out}}$
+\ENSURE Multi-horizon predictions $\hat{\mathbf{y}}_t \in \mathbb{R}^{16}$
+
+\STATE \textbf{// Local temporal patterns (Conv1D)}
+\STATE $\mathbf{X}_t \gets \text{Conv1D}(\mathbf{Z}_t; W_{\text{conv}})$ \COMMENT{Shape: $(T, d_c)$}
+\STATE $\mathbf{X}_t \gets \text{ReLU}(\mathbf{X}_t)$
+
+\STATE
+\STATE \textbf{// Long-range dependencies (GRU)}
+\STATE $\mathbf{H}_t \gets \text{GRU}(\mathbf{X}_t; W_{\text{gru}})$ \COMMENT{Shape: $(d_g,)$}
+
+\STATE
+\STATE \textbf{// Multi-horizon prediction head}
+\STATE $\hat{\mathbf{y}}_t \gets W_{\text{out}} \mathbf{H}_t + \mathbf{b}_{\text{out}}$ \COMMENT{Shape: $(16,)$}
+
+\STATE
+\STATE \textbf{// Decode predictions per horizon}
+\FOR{$h \in \{200, 300, 400, 500\}$ ms}
+    \FOR{$c \in \{\text{collision}, \text{drop}, \text{miss}, \text{timeout}\}$}
+        \STATE $p_{h,c} \gets \sigma(\hat{y}_{h,c})$ \COMMENT{Sigmoid activation}
+    \ENDFOR
+\ENDFOR
+
+\STATE
+\RETURN $\hat{\mathbf{y}}_t$ (16-dimensional logits)
+\end{algorithmic}
+\end{algorithm}
+
+\vspace{1cm}
+
+\begin{algorithm}[H]
+\caption{Training with Temporal Focal Loss}
+\label{alg:training}
+\begin{algorithmic}[1]
+\REQUIRE Training dataset $\mathcal{D} = \{(\mathbf{Z}_i, \mathbf{y}_i)\}_{i=1}^N$
+\REQUIRE Hyperparameters: $\gamma=2$ (focal), $\beta=1.5$ (FP penalty), $\lambda_{\text{smooth}}=0.1$
+\ENSURE Trained model parameters $\theta^*$
+
+\STATE Initialize parameters $\theta$ randomly
+\STATE Initialize optimizer (AdamW with $\text{lr}=10^{-3}$)
+
+\FOR{epoch $= 1$ to $\text{max\_epochs}$}
+    \STATE Shuffle dataset $\mathcal{D}$
+
+    \FOR{mini-batch $\mathcal{B} \subset \mathcal{D}$}
+        \STATE \textbf{// Forward pass}
+        \STATE $\{\hat{\mathbf{y}}_i\}_{i \in \mathcal{B}} \gets \text{Model}(\{\mathbf{Z}_i\}_{i \in \mathcal{B}}; \theta)$
+
+        \STATE
+        \STATE \textbf{// Compute focal loss}
+        \STATE $\mathcal{L}_{\text{focal}} \gets 0$
+        \FOR{$i \in \mathcal{B}$}
+            \FOR{horizon $h$, class $c$}
+                \STATE $p_{i,h,c} \gets \sigma(\hat{y}_{i,h,c})$
+                \STATE $\mathcal{L}_{\text{focal}} \mathrel{+}= -\alpha_c (1-p_{i,h,c})^\gamma y_{i,h,c} \log p_{i,h,c}$
+                \STATE $\mathcal{L}_{\text{focal}} \mathrel{+}= -\beta (p_{i,h,c})^\gamma (1-y_{i,h,c}) \log(1-p_{i,h,c})$
+            \ENDFOR
+        \ENDFOR
+        \STATE $\mathcal{L}_{\text{focal}} \gets \mathcal{L}_{\text{focal}} / |\mathcal{B}|$
+
+        \STATE
+        \STATE \textbf{// Compute smoothness regularization}
+        \STATE $\mathcal{L}_{\text{smooth}} \gets \frac{1}{|\mathcal{B}|-1} \sum_{i=1}^{|\mathcal{B}|-1} \|\hat{\mathbf{y}}_{i+1} - \hat{\mathbf{y}}_i\|_2^2$
+
+        \STATE
+        \STATE \textbf{// Total loss}
+        \STATE $\mathcal{L} \gets \mathcal{L}_{\text{focal}} + \lambda_{\text{smooth}} \mathcal{L}_{\text{smooth}}$
+
+        \STATE
+        \STATE \textbf{// Backward pass and update}
+        \STATE Compute gradients: $\nabla_\theta \mathcal{L}$
+        \STATE Update parameters: $\theta \gets \text{optimizer.step}(\theta, \nabla_\theta \mathcal{L})$
+    \ENDFOR
+
+    \STATE
+    \STATE \textbf{// Validation}
+    \STATE Evaluate on validation set
+    \IF{validation loss improved}
+        \STATE Save checkpoint: $\theta^* \gets \theta$
+    \ENDIF
+\ENDFOR
+
+\RETURN $\theta^*$
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}

@@ -18,7 +18,8 @@ simulation_app = app_launcher.app
 import torch
 import numpy as np
 from salus.simulation.franka_pick_place_env import FrankaPickPlaceEnv
-from salus.core.vla.wrapper import SmolVLAEnsemble, EnhancedSignalExtractor
+from salus.core.vla.wrapper import SmolVLAEnsemble
+from salus.core.vla.single_model_extractor import SingleModelSignalExtractor
 
 def print_flush(msg):
     print(msg, flush=True)
@@ -30,7 +31,7 @@ print_flush("="*70)
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 print_flush("\nLoading VLA...")
-vla = SmolVLAEnsemble(str(Path.home() / "models/smolvla/smolvla_base"), ensemble_size=3, device=device)
+vla = SmolVLAEnsemble(str(Path.home() / "models/smolvla/smolvla_base"), ensemble_size=1, device=device)
 print_flush("✅ VLA loaded")
 
 print_flush("\nCreating environment...")
@@ -38,7 +39,7 @@ env = FrankaPickPlaceEnv(simulation_app, 1, device, False, 100)
 print_flush("✅ Environment ready")
 
 print_flush("\nInitializing signal extractor...")
-signal_extractor = EnhancedSignalExtractor(device)
+signal_extractor = SingleModelSignalExtractor(device)
 print_flush("✅ Signal extractor ready")
 
 print_flush("\nResetting...")
@@ -77,11 +78,11 @@ for t in range(5):
         hidden = vla_output['hidden_state_mean'][0]
         print_flush(f"Hidden state norm: {torch.norm(hidden).item():.4f}")
 
-    print_flush("\nExtracting 18D signals...")
+    print_flush("\nExtracting 12D signals...")
     signals = signal_extractor.extract(vla_output, robot_state=obs['observation.state'].to(device))
     s = signals[0].cpu().numpy()
 
-    print_flush(f"\n18D SIGNALS:")
+    print_flush(f"\n12D SIGNALS:")
     names = ["Epistemic", "ActMag", "ActVar", "ActSmooth", "TrajDiv",
              "JointVar0", "JointVar1", "JointVar2", "UncMean", "UncStd",
              "UncMin", "UncMax", "LatentDrift", "OOD", "AugStab",

@@ -1,5 +1,5 @@
 """
-Test with ACTUAL production config: ensemble_size=3
+Test with ACTUAL production config: ensemble_size=1
 """
 
 import torch
@@ -13,12 +13,12 @@ from salus.core.vla.smolvla_wrapper import SmolVLAEnsemble
 from salus.simulation.isaaclab_env import SimplePickPlaceEnv
 
 print("="*70)
-print("PRODUCTION CONFIG TEST: ensemble_size=3")
+print("PRODUCTION CONFIG TEST: ensemble_size=1")
 print("="*70)
 
 # Test 1: Load ensemble of 3
 print("\n1. Loading ensemble of 3 models...")
-ensemble = SmolVLAEnsemble(ensemble_size=3, device="cuda:0")
+ensemble = SmolVLAEnsemble(ensemble_size=1, device="cuda:0")
 
 mem_mb = torch.cuda.memory_allocated(0) / (1024**2)
 print(f"✅ Ensemble loaded: {mem_mb:.2f} MB")

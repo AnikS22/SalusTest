@@ -4,7 +4,7 @@ GUI Demo: SmolVLA Controlling Franka Robot in Isaac Lab
 This script visualizes SmolVLA controlling a Franka Panda robot in real-time.
 You'll see:
 - Robot moving based on VLA predictions
-- Real-time 18D signal values printed to console
+- Real-time 12D signal values printed to console
 - Camera views showing what VLA sees
 - Physics simulation in Isaac Lab viewer
 
@@ -51,42 +51,44 @@ print(f"✅ Isaac Lab viewer opened!")
 import torch
 import numpy as np
 import time
-from salus.core.vla.wrapper import SmolVLAEnsemble, EnhancedSignalExtractor
+from salus.core.vla.wrapper import SmolVLAEnsemble
+from salus.core.vla.single_model_extractor import SingleModelSignalExtractor
 from salus.simulation.franka_pick_place_env import FrankaPickPlaceEnv
 
 print("✅ All modules imported")
 
 def print_signals(signals, timestep):
-    """Print 18D signals in a readable format."""
+    """Print 12D signals in a readable format."""
     s = signals[0].cpu().numpy()
 
     print(f"\n{'─'*70}")
     print(f"⏱️  Timestep {timestep:3d}")
     print(f"{'─'*70}")
 
-    print("📊 BASIC UNCERTAINTY (Signals 1-12):")
-    print(f"   1. Epistemic Uncertainty:  {s[0]:.4f}")
+    print("📊 TEMPORAL ACTION DYNAMICS (Signals 1-4):")
+    print(f"   1. Action Volatility:      {s[0]:.4f}  {'⚠️ HIGH' if s[0] > 0.5 else '✅'}")
     print(f"   2. Action Magnitude:       {s[1]:.4f}")
-    print(f"   3. Action Variance:        {s[2]:.4f}")
-    print(f"   4. Action Smoothness:      {s[3]:.4f}")
-    print(f"   5. Trajectory Divergence:  {s[4]:.4f}")
-    print(f"   6-8. Per-Joint Variance:   [{s[5]:.4f}, {s[6]:.4f}, {s[7]:.4f}]")
-    print(f"   9-12. Unc Stats:           Mean={s[8]:.4f}, Std={s[9]:.4f}, Min={s[10]:.4f}, Max={s[11]:.4f}")
+    print(f"   3. Action Acceleration:    {s[2]:.4f}  {'⚠️ JERKY' if s[2] > 0.3 else '✅'}")
+    print(f"   4. Trajectory Divergence:  {s[3]:.4f}")
 
-    print("\n🧠 VLA INTERNALS (Signals 13-14):")
-    print(f"   13. Latent Drift:          {s[12]:.4f}  {'⚠️ HIGH' if s[12] > 0.5 else '✅'}")
-    print(f"   14. OOD Distance:          {s[13]:.4f}  {'⚠️ OOD' if s[13] > 1.0 else '✅'}")
+    print("\n🧠 VLA INTERNAL STABILITY (Signals 5-7):")
+    print(f"   5. Latent Drift:           {s[4]:.4f}  {'⚠️ HIGH' if s[4] > 0.5 else '✅'}")
+    print(f"   6. Latent Norm Spike:      {s[5]:.4f}  {'⚠️ SPIKE' if s[5] > 1.5 else '✅'}")
+    print(f"   7. OOD Distance:           {s[6]:.4f}  {'⚠️ OOD' if s[6] > 2.0 else '✅'}")
 
-    print("\n🔬 SENSITIVITY (Signals 15-16):")
-    print(f"   15. Aug Stability:         {s[14]:.4f}")
-    print(f"   16. Pert Sensitivity:      {s[15]:.4f}")
+    print("\n🎲 MODEL UNCERTAINTY (Signals 8-9):")
+    print(f"   8. Softmax Entropy:        {s[7]:.4f}  {'⚠️ UNCERTAIN' if s[7] > 1.5 else '✅'}")
+    print(f"   9. Max Softmax Prob:       {s[8]:.4f}  {'⚠️ LOW CONF' if s[8] < 0.5 else '✅'}")
 
-    print("\n⚙️  REALITY CHECK (Signals 17-18):")
-    print(f"   17. Execution Mismatch:    {s[16]:.4f}  {'⚠️ DRIFT' if s[16] > 0.3 else '✅'}")
-    print(f"   18. Constraint Margin:     {s[17]:.4f}  {'⚠️ UNSAFE' if s[17] > 0.5 else '✅'}")
+    print("\n⚙️  PHYSICS REALITY CHECKS (Signals 10-11):")
+    print(f"   10. Execution Mismatch:    {s[9]:.4f}  {'⚠️ DRIFT' if s[9] > 0.3 else '✅'}")
+    print(f"   11. Constraint Margin:     {s[10]:.4f}  {'⚠️ UNSAFE' if s[10] > 0.5 else '✅'}")
 
-    # Overall health
-    risk_score = (s[0] + s[12] + s[13] + s[16] + s[17]) / 5.0
+    print("\n⏰ TEMPORAL CONSISTENCY (Signal 12):")
+    print(f"   12. Volatility Std:        {s[11]:.4f}  {'⚠️ ERRATIC' if s[11] > 0.4 else '✅'}")
+
+    # Overall health (key failure indicators)
+    risk_score = (s[0] + s[4] + s[6] + s[7] + s[9] + s[10]) / 6.0
     if risk_score < 0.3:
         status = "🟢 LOW RISK"
     elif risk_score < 0.6:
@@ -107,7 +109,7 @@ def main():
     print(f"\n🖥️  Device: {device}")
 
     # Load VLA model
-    print(f"\n🤖 Loading SmolVLA ensemble (3 models)...")
+    print(f"\n🤖 Loading SmolVLA (single model)...")
     model_path = Path.home() / "models" / "smolvla" / "smolvla_base"
 
     if not model_path.exists():
@@ -118,15 +120,15 @@ def main():
 
     vla = SmolVLAEnsemble(
         model_path=str(model_path),
-        ensemble_size=3,
+        ensemble_size=1,
         device=device
     )
     print(f"✅ VLA loaded! ({model_path})")
 
     # Signal extractor
     print(f"\n🔍 Initializing signal extractor...")
-    signal_extractor = EnhancedSignalExtractor(device=device)
-    print(f"✅ Signal extractor ready (18D signals)")
+    signal_extractor = SingleModelSignalExtractor(device=device)
+    print(f"✅ Signal extractor ready (12D single-model signals)")
 
     # Create environment
     print(f"\n🏗️  Creating Franka environment...")
@@ -144,7 +146,7 @@ def main():
     print(f"{'='*70}")
     print(f"\n📹 Watch the Isaac Lab viewer window!")
     print(f"🎯 SmolVLA will control the robot for {args.num_episodes} episodes")
-    print(f"📊 18D signals will be printed every step\n")
+    print(f"📊 12D signals will be printed every step\n")
 
     # Run episodes
     for episode in range(args.num_episodes):

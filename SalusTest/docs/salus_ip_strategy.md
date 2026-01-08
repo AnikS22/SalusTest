@@ -96,7 +96,7 @@ A method for training the predictor of Claim 1, comprising:
 **Defensive Claims** (prevent competitors from patenting):
 - "wherein failure types include collision, wrong object, grasp failure, goal miss"
 - "wherein horizons are in range [100ms, 1000ms]"
-- "wherein multimodal signals include epistemic uncertainty, attention entropy"
+- "wherein multimodal signals include model uncertainty, attention entropy"
 
 **File By**: Week 8 (before first external demo/presentation)
 

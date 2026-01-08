@@ -1,0 +1,82 @@
+\documentclass[border=10pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,fit,calc}
+
+\begin{document}
+
+\tikzstyle{block} = [rectangle, draw, fill=blue!20, text width=5em, text centered, rounded corners, minimum height=3em]
+\tikzstyle{signal} = [rectangle, draw, fill=green!20, text width=4em, text centered, minimum height=2em]
+\tikzstyle{conv} = [rectangle, draw, fill=orange!20, text width=6em, text centered, minimum height=2.5em]
+\tikzstyle{gru} = [rectangle, draw, fill=purple!20, text width=6em, text centered, minimum height=2.5em]
+\tikzstyle{output} = [rectangle, draw, fill=red!20, text width=5em, text centered, rounded corners, minimum height=2.5em]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+\begin{tikzpicture}[node distance=2cm]
+
+% VLA Model
+\node [block] (vla) {VLA Model\\$\pi_\theta$};
+
+% Signal extraction
+\node [signal, below=0.8cm of vla, xshift=-6cm] (z1) {$z_1$\\volatility};
+\node [signal, right=0.3cm of z1] (z2) {$z_2$\\magnitude};
+\node [signal, right=0.3cm of z2] (z3) {$z_3$\\accel};
+\node [signal, right=0.3cm of z3] (zdots1) {$\cdots$};
+\node [signal, right=0.3cm of zdots1] (z12) {$z_{12}$\\consistency};
+
+% Temporal window
+\node [block, below=1cm of z2, xshift=1cm] (window) {Sliding Window\\$w=20$ steps};
+
+% Conv1D layers
+\node [conv, below=1cm of window] (conv1) {Conv1D\\$k=5, c=64$};
+\node [conv, below=0.6cm of conv1] (conv2) {Conv1D\\$k=3, c=64$};
+\node [conv, below=0.6cm of conv2] (conv3) {Conv1D\\$k=3, c=64$};
+
+% GRU layers
+\node [gru, below=1cm of conv3] (gru) {BiGRU\\$h=128$, 2 layers};
+
+% Multi-horizon heads
+\node [output, below=1.2cm of gru, xshift=-2.5cm] (h300) {300ms\\horizon};
+\node [output, right=0.5cm of h300] (h500) {500ms\\horizon};
+\node [output, right=0.5cm of h500] (h1000) {1000ms\\horizon};
+
+% Arrows
+\draw [arrow] (vla) -- node[right, text width=3cm, xshift=0.3cm] {Extract signals\\$\mathbf{z}_t \in \mathbb{R}^{12}$} (z2);
+\draw [arrow] (z1) -- (window);
+\draw [arrow] (z2) -- (window);
+\draw [arrow] (z3) -- (window);
+\draw [arrow] (zdots1) -- (window);
+\draw [arrow] (z12) -- (window);
+
+\draw [arrow] (window) -- node[right] {$[\mathbf{z}_{t-w:t}]$} (conv1);
+\draw [arrow] (conv1) -- (conv2);
+\draw [arrow] (conv2) -- (conv3);
+\draw [arrow] (conv3) -- node[right] {Features} (gru);
+
+\draw [arrow] (gru) -- (h300);
+\draw [arrow] (gru) -- (h500);
+\draw [arrow] (gru) -- (h1000);
+
+% Output probabilities
+\node [below=0.5cm of h300] (p300) {$p_t^{300}$};
+\node [below=0.5cm of h500] (p500) {$p_t^{500}$};
+\node [below=0.5cm of h1000] (p1000) {$p_t^{1000}$};
+
+\draw [arrow] (h300) -- (p300);
+\draw [arrow] (h500) -- (p500);
+\draw [arrow] (h1000) -- (p1000);
+
+% Observation and action labels
+\node [above=0.5cm of vla, text width=3cm, align=center] (obs) {Observation $\mathbf{o}_t$\\Language $\ell$};
+\node [left=1.5cm of vla, text width=2cm, align=center] (action) {Action\\$\mathbf{a}_t$};
+
+\draw [arrow] (obs) -- (vla);
+\draw [arrow] (vla) -- (action);
+
+% Bounding boxes
+\node [draw, dashed, fit=(z1)(z2)(z3)(zdots1)(z12), label=above:Signal Extraction] {};
+\node [draw, dashed, fit=(conv1)(conv2)(conv3), label=left:Conv1D] {};
+\node [draw, dashed, fit=(h300)(h500)(h1000)(p300)(p500)(p1000), label=below:Multi-Horizon Prediction] {};
+
+\end{tikzpicture}
+
+\end{document}

@@ -295,7 +295,7 @@ class SignalExtractor:
     """Extracts 12D failure precursor signals"""
 
     def extract(self, vla_output, obs, history):
-        # Epistemic uncertainty (2 features)
+        # Model uncertainty (2 features)
         uncertainty = vla_ensemble.variance()
 
         # Attention degradation (2 features)

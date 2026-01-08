@@ -19,7 +19,7 @@ Your 4x 2080 Ti setup maps perfectly to SALUS architecture:
 └─────────────────────────────────────────────────────┘
 
 GPU 0 (11GB) → VLA Ensemble (5 models × 2.2GB = 11GB)
-   └─ TinyVLA-1B models × 5 (for epistemic uncertainty)
+   └─ TinyVLA-1B models × 5 (for model uncertainty)
 
 GPU 1 (4GB used) → Signal Extraction + Failure Predictor
    └─ Lightweight: feature extraction + predictor inference
@@ -294,7 +294,7 @@ with torch.no_grad():
 
 actions = torch.stack(actions, dim=0)  # (5, 1, action_dim)
 mean_action = actions.mean(dim=0)
-action_variance = actions.var(dim=0)  # Epistemic uncertainty!
+action_variance = actions.var(dim=0)  # Model uncertainty!
 
 print(f"\n✅ Ensemble inference successful!")
 print(f"Action shape: {actions.shape}")
@@ -492,7 +492,7 @@ class VLAEnsemble(nn.Module):
         if return_internals:
             internals = {
                 'action_mean': actions.mean(dim=1),
-                'action_var': actions.var(dim=1),  # Epistemic uncertainty!
+                'action_var': actions.var(dim=1),  # Model uncertainty!
                 'actions_all': actions
             }
 
@@ -536,7 +536,7 @@ class SignalExtractor:
         batch_size = vla_internals['action_mean'].shape[0]
         features = torch.zeros(batch_size, 12, device=self.device)
 
-        # 1. Epistemic Uncertainty (2 features)
+        # 1. Model Uncertainty (2 features)
         action_var = vla_internals['action_var'].to(self.device)
         features[:, 0] = action_var.mean(dim=1)  # Average variance
         features[:, 1] = action_var.max(dim=1)[0]  # Max variance

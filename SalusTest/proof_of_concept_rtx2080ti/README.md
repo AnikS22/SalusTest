@@ -88,7 +88,7 @@ proof_of_concept_rtx2080ti/
 **Input**: 12D VLA signals
 ```
 - Attention scores (head averages)
-- Epistemic uncertainty (action variance)
+- Model uncertainty (action variance)
 - Aleatoric uncertainty (policy entropy)
 - Hidden state magnitudes
 ```

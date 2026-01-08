@@ -47,7 +47,7 @@ if not model_path.exists():
 
 vla = SmolVLAEnsemble(
     model_path=str(model_path),
-    ensemble_size=3,
+    ensemble_size=1,
     device=device
 )
 print(f"✅ VLA loaded")

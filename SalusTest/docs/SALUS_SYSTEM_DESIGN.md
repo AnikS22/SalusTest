@@ -48,12 +48,12 @@ SALUS is a **failure prediction and adaptation system** for Vision-Language-Acti
 └─────────────────────┬───────────────────────────────────────┘
                       │
                       ├──► actions (7D)
-                      └──► action_variance (epistemic uncertainty)
+                      └──► action_variance (model uncertainty)
 
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              SIGNAL EXTRACTOR (12D features)                 │
-│  1. Epistemic uncertainty (ensemble variance)                │
+│  1. Model uncertainty (internal uncertainty signals)                │
 │  2. Action magnitude                                         │
 │  3. Action variance                                          │
 │  4. Action smoothness                                        │
@@ -239,7 +239,7 @@ SALUS adapts over time:
 ## Key Insights from Paper
 
 ### Why SALUS Works
-1. **Epistemic uncertainty** from ensemble captures model confidence
+1. **Model uncertainty** from ensemble captures model confidence
 2. **Trajectory features** capture temporal dynamics
 3. **Multi-horizon** allows graduated responses
 4. **Closed-loop adaptation** prevents failures proactively

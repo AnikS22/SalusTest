@@ -2,7 +2,7 @@
 Headless VLA test with FULL output of everything:
 - VLA actions (6D)
 - Converted actions (7D)
-- All 18D signals from extractor
+- All 12D signals from extractor
 - Robot state
 - Epistemic uncertainty
 
@@ -32,7 +32,8 @@ app_launcher = AppLauncher(args)
 simulation_app = app_launcher.app
 
 from salus.simulation.franka_pick_place_env import FrankaPickPlaceEnv
-from salus.core.vla.wrapper import SmolVLAEnsemble, EnhancedSignalExtractor
+from salus.core.vla.wrapper import SmolVLAEnsemble
+from salus.core.vla.single_model_extractor import SingleModelSignalExtractor
 
 print("\n" + "="*70)
 print("HEADLESS VLA TEST - FULL OUTPUT")
@@ -50,15 +51,15 @@ if not model_path.exists():
 
 vla = SmolVLAEnsemble(
     model_path=str(model_path),
-    ensemble_size=3,
+    ensemble_size=1,
     device=device
 )
 print(f"✅ VLA loaded (3× 865MB models)")
 
 # Signal extractor
 print(f"\n[2/4] Initializing signal extractor...")
-signal_extractor = EnhancedSignalExtractor(device=device)
-print(f"✅ Signal extractor ready (18D)")
+signal_extractor = SingleModelSignalExtractor(device=device)
+print(f"✅ Signal extractor ready (12D)")
 
 # Environment
 print(f"\n[3/4] Creating environment (headless)...")
@@ -130,13 +131,13 @@ for t in range(100):
         print(f"   Norm: {np.linalg.norm(hidden):.4f}")
         print(f"   Mean: {hidden.mean():.4f}, Std: {hidden.std():.4f}")
 
-    # Extract 18D signals
-    print(f"\n🔍 Extracting 18D signals...")
+    # Extract 12D signals
+    print(f"\n🔍 Extracting 12D signals...")
     robot_state_full = obs['observation.state'].to(device)
     signals = signal_extractor.extract(vla_output, robot_state=robot_state_full)
     signals_np = signals[0].cpu().numpy()
 
-    print(f"\n📊 18D SIGNALS:")
+    print(f"\n📊 12D SIGNALS:")
     signal_names = [
         "1. Epistemic Uncertainty",
         "2. Action Magnitude",

@@ -8,7 +8,7 @@
 ## 🎯 Executive Summary
 
 **System**: SALUS (Safety Assurance for Learning-based Uncertainty-aware Systems)
-**VLA Model**: SmolVLA-450M (3-model ensemble)
+**VLA Model**: SmolVLA-450M (single VLA model)
 **Current Status**: ✅ VLA working, 🔄 SALUS training in progress (FINAL attempt)
 
 ### What We Have
@@ -74,7 +74,7 @@ Step 2:
 
 SALUS monitors 6 signals from the VLA ensemble:
 
-1. **Epistemic Uncertainty**: Ensemble disagreement (0.08-0.20 range)
+1. **Model Uncertainty**: Ensemble disagreement (0.08-0.20 range)
    - Low = models agree → confident
    - High = models disagree → uncertain about action
 

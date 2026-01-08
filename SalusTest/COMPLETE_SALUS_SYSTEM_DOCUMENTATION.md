@@ -45,7 +45,7 @@ This gives operators early warning with increasing confidence as failure approac
 
 ```
 1. VLA Ensemble runs 5 copies of SmolVLA-450M (865MB model)
-   ↓ Actions + Ensemble Variance (Epistemic Uncertainty)
+   ↓ Actions + Ensemble Variance (Model Uncertainty)
 
 2. Signal Extractor computes 18D features from:
    - VLA ensemble disagreement
@@ -117,7 +117,7 @@ This gives operators early warning with increasing confidence as failure approac
 │                                                               │
 │  OUTPUT:                                                      │
 │    • action: (B, 7) - mean action                           │
-│    • action_var: (B, 7) - epistemic uncertainty             │
+│    • action_var: (B, 7) - model uncertainty             │
 │    • hidden_state_mean: (B, 256) - VLA internals            │
 │    • perturbed_actions: (B, 3, 7) - sensitivity test        │
 └────────┬─────────────────────────────────────────────────────┘
@@ -208,7 +208,7 @@ Class: SmolVLAEnsemble
 ### Purpose
 Run multiple copies of a pre-trained VLA model in parallel to:
 1. Get diverse action predictions
-2. Compute epistemic uncertainty (ensemble disagreement)
+2. Compute model uncertainty (ensemble disagreement)
 3. Extract internal representations (hidden states)
 4. Test sensitivity to input perturbations
 
@@ -293,7 +293,7 @@ def forward(
     Returns:
         Dict with:
             - 'action': (B, 7) mean action
-            - 'action_var': (B, 7) epistemic uncertainty
+            - 'action_var': (B, 7) model uncertainty
             - 'epistemic_uncertainty': (B,) scalar
             - 'actions': (B, ensemble_size, 7) all predictions
             - 'hidden_state_mean': (B, hidden_dim) VLA internals
@@ -350,7 +350,7 @@ def forward(
 
     # Compute ensemble statistics
     action_mean = actions.mean(dim=1)  # (B, action_dim)
-    action_var = actions.var(dim=1)    # (B, action_dim) - epistemic uncertainty
+    action_var = actions.var(dim=1)    # (B, action_dim) - model uncertainty
 
     result = {
         'action': action_mean,
@@ -532,7 +532,7 @@ Class: EnhancedSignalExtractor
 ```
 
 ### Purpose
-Convert VLA ensemble output into a **18-dimensional feature vector** that captures:
+Convert VLA ensemble output into a **12-dimensional feature vector** that captures:
 - Uncertainty in VLA predictions
 - Internal state of VLA
 - Sensitivity to perturbations
@@ -542,7 +542,7 @@ Convert VLA ensemble output into a **18-dimensional feature vector** that captur
 
 | Signal # | Name | Formula | Source | Type |
 |----------|------|---------|--------|------|
-| **1** | Epistemic Uncertainty | `mean(action_var)` | Ensemble variance | float32 |
+| **1** | Model Uncertainty | `mean(action_var)` | Ensemble variance | float32 |
 | **2** | Action Magnitude | `‖action‖₂` | L2 norm | float32 |
 | **3** | Action Variance | `mean(action_var)` | Per-dim variance | float32 |
 | **4** | Action Smoothness | `‖action_t - action_{t-1}‖₂` | Temporal | float32 |
@@ -597,7 +597,7 @@ class EnhancedSignalExtractor:
         robot_state: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         """
-        Extract 18D signals.
+        Extract 12D signals.
 
         Args:
             vla_output: Dict from SmolVLAEnsemble.forward() containing:
@@ -616,7 +616,7 @@ class EnhancedSignalExtractor:
 
         # ========== BASIC SIGNALS (1-12) ==========
 
-        # 1. Epistemic uncertainty
+        # 1. Model uncertainty
         epistemic = vla_output['epistemic_uncertainty']
         signals.append(epistemic.unsqueeze(-1))
 
@@ -1093,7 +1093,7 @@ def collect_episode_batch(
 
             action = action_dict['action'].to(obs['observation.state'].device)
 
-            # Extract 18D signals (THIS IS THE FIX!)
+            # Extract 12D signals (THIS IS THE FIX!)
             robot_state = obs['observation.state'].to(vla_device)
             signals = signal_extractor.extract(action_dict, robot_state=robot_state)
         else:
@@ -1115,7 +1115,7 @@ def collect_episode_batch(
                 ], axis=0)  # (3, 3, 256, 256)
                 env_images[env_idx].append(images)
 
-                # Store 18D signals
+                # Store 12D signals
                 env_signals[env_idx].append(signals[env_idx].cpu().numpy())
                 env_lengths[env_idx] += 1
 
@@ -1150,7 +1150,7 @@ def collect_episode_batch(
             'actions': actions,
             'states': states,
             'images': images,
-            'signals': signals,     # 18D signals from VLA internals!
+            'signals': signals,     # 12D signals from VLA internals!
             'success': success,
             'failure_type': failure_type,
             'episode_length': env_lengths[env_idx]
@@ -1506,7 +1506,7 @@ Loop (30 Hz control):
    Step 2: VLA ensemble forward pass
        ↓ vla_output
 
-   Step 3: Extract 18D signals
+   Step 3: Extract 12D signals
        ↓ signals (1, 18)
 
    Step 4: Buffer last 10 timesteps
@@ -1697,7 +1697,7 @@ Signals from REAL VLA output:
 
 **Test Results** (from `test_salus_can_learn.py`):
 ```
-Training on 18D signals for 50 epochs:
+Training on 12D signals for 50 epochs:
    Initial loss: 0.066485
    Final loss: 0.002665
    Improvement: 96.0%
@@ -1945,7 +1945,7 @@ SALUS is a **complete, production-ready system** for predicting robot manipulati
 - 865MB SmolVLA model loaded and run
 - VLA hidden states extracted from transformer
 - Perturbation testing with 3× extra inferences
-- 18D signals computed from real VLA outputs
+- 12D signals computed from real VLA outputs
 
 ✅ **Functional**:
 - Data collection works (Isaac Lab + VLA)

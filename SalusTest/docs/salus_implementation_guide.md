@@ -203,7 +203,7 @@ class VLAWithInternals(nn.Module):
     def __init__(self, vla_checkpoint, ensemble_size=5):
         super().__init__()
 
-        # Load ensemble of VLA models (for epistemic uncertainty)
+        # Load ensemble of VLA models (for model uncertainty)
         self.ensemble = nn.ModuleList([
             TinyVLA.from_pretrained(vla_checkpoint) for _ in range(ensemble_size)
         ])
@@ -244,7 +244,7 @@ class VLAWithInternals(nn.Module):
                 'attention': torch.stack(attentions, dim=1),  # (B, K, num_heads, seq_len, seq_len)
                 'hidden': torch.stack(hiddens, dim=1),  # (B, K, seq_len, hidden_dim)
                 'action_mean': actions.mean(dim=1),
-                'action_variance': actions.var(dim=1)  # Epistemic uncertainty
+                'action_variance': actions.var(dim=1)  # Model uncertainty
             }
             return actions, internals
         else:
@@ -281,7 +281,7 @@ class FailureSignalExtractor:
         # Get VLA internals
         actions, internals = self.vla(obs, language, return_internals=True)
 
-        # 1. Epistemic Uncertainty (2 features)
+        # 1. Model Uncertainty (2 features)
         sigma2_ensemble = internals['action_variance'].mean().item()
         sigma2_action = actions.var(dim=1).mean().item()
 

@@ -56,11 +56,11 @@ The demo opens an **Isaac Lab viewer window** showing:
 
 ### 2. Signal Extraction (18D)
 
-After each VLA forward pass, the system extracts 18D signals:
+After each VLA forward pass, the system extracts 12D signals:
 
 ```
 [1-12] BASIC UNCERTAINTY (from ensemble)
-   ├─ Epistemic uncertainty (model disagreement)
+   ├─ Model uncertainty (action volatility)
    ├─ Action magnitude, variance, smoothness
    ├─ Trajectory divergence
    └─ Per-joint variance and uncertainty statistics
@@ -87,7 +87,7 @@ The demo prints signal values every 10 timesteps:
 ⏱️  Timestep  10
 ══════════════════════════════════════════════════════════════════
 📊 BASIC UNCERTAINTY (Signals 1-12):
-   1. Epistemic Uncertainty:  0.0234
+   1. Model Uncertainty:  0.0234
    2. Action Magnitude:       0.1523
    ...
 
@@ -157,7 +157,7 @@ Each episode runs for up to 100 timesteps (~3.3 seconds at 30Hz):
 2. **Execution Phase**:
    - VLA predicts actions from camera observations
    - Robot executes actions (joint velocity control)
-   - Signal extractor monitors 18D signals
+   - Signal extractor monitors 12D signals
    - Physics simulation updates scene
 
 3. **Termination**:
@@ -168,13 +168,13 @@ Each episode runs for up to 100 timesteps (~3.3 seconds at 30Hz):
 ### What To Watch For
 
 #### 🟢 Success Indicators:
-- Low epistemic uncertainty (models agree)
+- Low model uncertainty (models agree)
 - Stable latent drift (VLA confident)
 - Low execution mismatch (prediction accurate)
 - Smooth robot motion
 
 #### 🔴 Failure Indicators:
-- High epistemic uncertainty (models disagree)
+- High model uncertainty (models disagree)
 - Large latent drift (VLA confused/OOD)
 - High execution mismatch (physics unpredictable)
 - Jerky or unstable motion
@@ -258,7 +258,7 @@ While the demo is running, you can interact with the Isaac Lab viewer:
 The terminal shows:
 - Episode progress (1/2, 2/2)
 - Timestep counter
-- 18D signal values every 10 steps
+- 12D signal values every 10 steps
 - Risk assessment (LOW/MODERATE/HIGH)
 - Episode outcomes (SUCCESS/FAILURE)
 - Total reward
@@ -276,8 +276,8 @@ When the demo completes (2 episodes), you'll see:
 
 You saw SmolVLA controlling the robot with:
    • Real-time visual feedback in Isaac Lab
-   • 18D signals extracted from VLA internals
-   • Ensemble epistemic uncertainty
+   • 12D signals extracted from VLA internals
+   • Ensemble model uncertainty
    • Hidden state monitoring
    • Perturbation sensitivity testing
 
@@ -312,7 +312,7 @@ pkill -f demo_smolvla_gui
 After seeing the demo, you can:
 
 1. **Collect training data**: Run `slurm_collect_data.sh` on Athene HPC
-2. **Train failure predictor**: Use collected data with 18D signals
+2. **Train failure predictor**: Use collected data with 12D signals
 3. **Analyze failure patterns**: Identify which signals correlate with failures
 4. **Deploy SALUS**: Real-time failure prediction at 30Hz
 

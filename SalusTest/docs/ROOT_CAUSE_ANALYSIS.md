@@ -134,7 +134,7 @@ From `episode_metadata`:
 - ✅ Real variation from SmolVLA
 
 **Signals** (6D):
-- Epistemic uncertainty: 0.084-0.119 (mean), 0.027-0.070 (std)
+- Model uncertainty: 0.084-0.119 (mean), 0.027-0.070 (std)
 - Action magnitude: 3.14-3.70 (mean), 1.49-1.87 (std)
 - ✅ Real variation from ensemble
 
@@ -234,7 +234,7 @@ Epoch 1: Loss 0.771 → 0.711 (decreasing ✅)
 
 With proper labels, the model should learn to:
 1. Detect patterns in VLA uncertainty signals
-2. Correlate epistemic uncertainty with failures
+2. Correlate model uncertainty with failures
 3. Predict failures before they occur
 
 **Expected Metrics**:

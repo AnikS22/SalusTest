@@ -139,7 +139,7 @@ def forward(self, observation: Dict) -> Dict:
         tokens = self.tokenizer(observation['task'])
         observation['observation.language.tokens'] = tokens
 
-    # 3. Run ensemble (3 models for epistemic uncertainty)
+    # 3. Run ensemble (3 models for model uncertainty)
     actions = []
     hidden_states = []
 
@@ -164,7 +164,7 @@ def forward(self, observation: Dict) -> Dict:
 
     # 4. Compute ensemble statistics
     action_mean = mean(actions)  # (1, 6)
-    action_var = variance(actions)  # Epistemic uncertainty
+    action_var = variance(actions)  # Model uncertainty
 
     # 5. Test perturbation stability (3× extra VLA runs with noise)
     perturbed_actions = []
@@ -192,14 +192,14 @@ This is why it uses 6+ GB RAM and takes ~50-80ms per timestep.
 
 **Code**: `salus/core/vla/wrapper.py` lines 434-668
 
-After VLA runs, we extract **18D signals**:
+After VLA runs, we extract **12D signals**:
 
 ```python
 signals = signal_extractor.extract(vla_output, robot_state)
 # Returns: (1, 18) tensor
 
 # Where signals come from:
-signals[0:12]  = Basic uncertainty (from ensemble variance)
+signals[0:12]  = Basic uncertainty (from internal uncertainty signals)
 signals[12:14] = VLA internals (hidden state drift, OOD distance)
 signals[14:16] = Sensitivity (perturbation response)
 signals[16:18] = Reality checks (execution mismatch, joint limits)
@@ -368,12 +368,12 @@ hidden_state.sum() = 12.456  # Non-zero, varying
 ┌──────────────────────────────────────────────────────────────┐
 │ ENHANCED SIGNAL EXTRACTOR                                    │
 │                                                              │
-│  [1-12]  Basic Uncertainty (ensemble variance)              │
+│  [1-12]  Basic Uncertainty (internal uncertainty signals)              │
 │  [13-14] VLA Internals (hidden drift, OOD distance)         │
 │  [15-16] Sensitivity (perturbation response)                │
 │  [17-18] Reality Checks (physics validation)                │
 │                                                              │
-│  Output: 18D signal vector                                  │
+│  Output: 12D signal vector                                  │
 └──────────────────────────┬───────────────────────────────────┘
                            │
                            ↓
@@ -411,7 +411,7 @@ hidden_state.sum() = 12.456  # Non-zero, varying
 ✅ **What works**:
 - VLA model loads (865MB × 3 = 2.6GB)
 - VLA processes observations (vision + language)
-- 18D signals extracted from VLA internals
+- 12D signals extracted from VLA internals
 - Hidden states from transformer captured
 - Perturbation testing runs (6× VLA inferences per timestep)
 

@@ -11,7 +11,7 @@
 
 1. **VLA Integration** ✅
    - Loaded real SmolVLA-450M (450M parameters)
-   - 3-model ensemble for uncertainty quantification
+   - single VLA model for uncertainty quantification
    - Extracts 6D uncertainty signals
    - Runs on RTX 2080 Ti GPU (2.6 GB memory)
 

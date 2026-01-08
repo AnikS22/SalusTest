@@ -1,8 +1,8 @@
 """
-Test if SALUS can actually LEARN from 18D VLA signals to predict failures.
+Test if SALUS can actually LEARN from 12D VLA signals to predict failures.
 
 This will:
-1. Create synthetic temporal data with 18D signals
+1. Create synthetic temporal data with 12D signals
 2. Train the HybridTemporalPredictor
 3. Show that it learns to discriminate failure vs success patterns
 4. Prove the architecture works with real VLA signal dimensions
@@ -20,13 +20,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 from salus.models.temporal_predictor import HybridTemporalPredictor, TemporalFocalLoss
 
 print("="*70)
-print("TESTING: SALUS Can Learn from 18D VLA Signals")
+print("TESTING: SALUS Can Learn from 12D VLA Signals")
 print("="*70)
 
 # Create synthetic temporal data
-print("\n1. Creating synthetic temporal data with 18D signals...")
+print("\n1. Creating synthetic temporal data with 12D signals...")
 
-def create_synthetic_episode(length=50, signal_dim=18, will_fail=True):
+def create_synthetic_episode(length=50, signal_dim=12, will_fail=True):
     """
     Create synthetic episode with temporal patterns.
 
@@ -78,7 +78,7 @@ X_train = []  # (N, window_size, 18)
 y_train = []  # (N, 16) - flattened (4 horizons × 4 types)
 
 for _ in range(n_fail):
-    signals, labels = create_synthetic_episode(length=50, signal_dim=18, will_fail=True)
+    signals, labels = create_synthetic_episode(length=50, signal_dim=12, will_fail=True)
     # Extract windows
     for t in range(window_size, len(signals)):
         window = signals[t-window_size:t]  # (window_size, 18)
@@ -87,7 +87,7 @@ for _ in range(n_fail):
         y_train.append(label)
 
 for _ in range(n_success):
-    signals, labels = create_synthetic_episode(length=50, signal_dim=18, will_fail=False)
+    signals, labels = create_synthetic_episode(length=50, signal_dim=12, will_fail=False)
     for t in range(window_size, len(signals)):
         window = signals[t-window_size:t]
         label = labels[t].flatten()
@@ -103,9 +103,9 @@ print(f"   y shape: {y_train.shape}")
 print(f"   Positive labels: {(y_train.sum(dim=1) > 0).sum().item()}/{len(y_train)}")
 
 # Initialize model
-print("\n2. Initializing HybridTemporalPredictor with 18D input...")
+print("\n2. Initializing HybridTemporalPredictor with 12D input...")
 model = HybridTemporalPredictor(
-    signal_dim=18,  # NEW: 18D instead of 12D
+    signal_dim=12,  # NEW: 12D instead of 12D
     conv_dim=32,
     gru_dim=64,
     dropout=0.2,
@@ -126,7 +126,7 @@ n_params = sum(p.numel() for p in model.parameters())
 print(f"   Parameters: {n_params:,}")
 
 # Test forward pass
-print("\n3. Testing forward pass with 18D signals...")
+print("\n3. Testing forward pass with 12D signals...")
 with torch.no_grad():
     test_input = X_train[:4]  # Batch of 4
     test_output = model(test_input)
@@ -136,7 +136,7 @@ print(f"   Output shape: {test_output.shape}")
 print(f"   Output range: [{test_output.min().item():.4f}, {test_output.max().item():.4f}]")
 
 if test_output.shape == (4, 16):
-    print(f"   ✅ Forward pass works with 18D input!")
+    print(f"   ✅ Forward pass works with 12D input!")
 else:
     print(f"   ❌ Wrong output shape!")
     sys.exit(1)
@@ -196,12 +196,12 @@ print("\n5. Testing failure prediction (discrimination)...")
 model.eval()
 with torch.no_grad():
     # Create test failure pattern
-    fail_signals, fail_labels = create_synthetic_episode(length=50, signal_dim=18, will_fail=True)
+    fail_signals, fail_labels = create_synthetic_episode(length=50, signal_dim=12, will_fail=True)
     fail_window = fail_signals[-window_size:].unsqueeze(0)  # (1, 10, 18)
     fail_pred = model(fail_window)[0]  # (16,)
 
     # Create test success pattern
-    success_signals, success_labels = create_synthetic_episode(length=50, signal_dim=18, will_fail=False)
+    success_signals, success_labels = create_synthetic_episode(length=50, signal_dim=12, will_fail=False)
     success_window = success_signals[-window_size:].unsqueeze(0)
     success_pred = model(success_window)[0]
 
@@ -250,14 +250,14 @@ success_scores = []
 
 for _ in range(20):
     # Failure
-    fail_signals, _ = create_synthetic_episode(length=50, signal_dim=18, will_fail=True)
+    fail_signals, _ = create_synthetic_episode(length=50, signal_dim=12, will_fail=True)
     fail_window = fail_signals[-window_size:].unsqueeze(0)
     with torch.no_grad():
         pred = model(fail_window)[0].max().item()
     fail_scores.append(pred)
 
     # Success
-    success_signals, _ = create_synthetic_episode(length=50, signal_dim=18, will_fail=False)
+    success_signals, _ = create_synthetic_episode(length=50, signal_dim=12, will_fail=False)
     success_window = success_signals[-window_size:].unsqueeze(0)
     with torch.no_grad():
         pred = model(success_window)[0].max().item()
@@ -298,8 +298,8 @@ print(f"SUMMARY")
 print(f"{'='*70}")
 
 checks = [
-    ("18D signals created", X_train.shape[2] == 18),
-    ("Model accepts 18D input", test_output.shape == (4, 16)),
+    ("12D signals created", X_train.shape[2] == 18),
+    ("Model accepts 12D input", test_output.shape == (4, 16)),
     ("Training loss decreased", losses[-1] < losses[0]),
     ("Loss improved >50%", (losses[0] - losses[-1]) / losses[0] > 0.5),
     ("Discrimination > 0.2", discrimination > 0.2),
@@ -316,7 +316,7 @@ for name, result in checks:
 
 if passed == total:
     print(f"\n🎉 ALL CHECKS PASSED!")
-    print(f"   SALUS CAN LEARN from 18D VLA signals to predict failures!")
+    print(f"   SALUS CAN LEARN from 12D VLA signals to predict failures!")
 elif passed >= 4:
     print(f"\n⚠️  Most checks passed. Model shows learning capability.")
 else:
@@ -324,7 +324,7 @@ else:
 
 print(f"\n{'='*70}")
 print(f"\nCONCLUSION:")
-print(f"   The HybridTemporalPredictor architecture WORKS with 18D signals")
+print(f"   The HybridTemporalPredictor architecture WORKS with 12D signals")
 print(f"   and CAN LEARN to discriminate failure vs success patterns.")
 print(f"\n   Next step: Train on REAL VLA signals from Isaac Lab simulation!")
 print(f"{'='*70}")

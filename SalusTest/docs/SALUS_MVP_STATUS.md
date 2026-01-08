@@ -13,7 +13,7 @@
 
 ```python
 class TinyVLAEnsemble:
-    - 3 TinyVLA-1B models for epistemic uncertainty
+    - 3 TinyVLA-1B models for model uncertainty
     - Ensemble variance for confidence estimation
     - ~9GB VRAM total
     - ~50ms inference time
@@ -26,7 +26,7 @@ class SimpleSignalExtractor:
 
 **Features**:
 - ✅ TinyVLA-1B integration (3 models)
-- ✅ Epistemic uncertainty from variance
+- ✅ Model uncertainty from variance
 - ✅ 6D signal extraction
 - ✅ Action history tracking
 - ✅ Tested with dummy data

@@ -1,7 +1,7 @@
 """
 Train SALUS on locally collected data.
 
-Trains the HybridTemporalPredictor to predict failures from 18D signals.
+Trains the HybridTemporalPredictor to predict failures from 12D signals.
 """
 
 import torch
@@ -47,6 +47,15 @@ print(f"   Signals shape: {signals.shape}")
 print(f"   Episodes: {root.attrs.get('num_episodes', 'unknown')}")
 print(f"   Success rate: {root.attrs.get('successes', 0)}/{root.attrs.get('num_episodes', 0)}")
 
+# Validate signal dimension
+expected_signal_dim = 12
+actual_signal_dim = signals.shape[1]
+if actual_signal_dim != expected_signal_dim:
+    print(f"\n❌ ERROR: Data has {actual_signal_dim}D signals, but expected {expected_signal_dim}D!")
+    print(f"   This data was collected with the old signal extractor.")
+    print(f"   Please recollect data with updated collect_local_data.py")
+    sys.exit(1)
+
 # Create temporal windows
 print(f"\nCreating temporal windows...")
 window_size = 10  # 333ms at 30Hz
@@ -79,7 +88,7 @@ class TemporalDataset(Dataset):
         start_idx = end_idx - self.window_size + 1
 
         # Get window
-        window = self.signals[start_idx:end_idx+1]  # (window_size, 18)
+        window = self.signals[start_idx:end_idx+1]  # (window_size, 12)
 
         # Get labels (failure at each horizon)
         episode_id = self.episode_ids[end_idx]
@@ -131,7 +140,7 @@ print(f"\nInitializing SALUS model...")
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 model = HybridTemporalPredictor(
-    signal_dim=18,
+    signal_dim=12,
     conv_dim=32,
     gru_dim=64,
     dropout=0.2,

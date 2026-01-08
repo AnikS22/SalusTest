@@ -31,7 +31,7 @@ Your 4x RTX 2080 Ti machine enables **complete validation** before touching hard
 
 | Week | Activity | What It Proves | Paper Claim |
 |------|----------|---------------|-------------|
-| **1-2** | Setup + VLA ensemble | 5 VLA models fit on GPU 0, epistemic uncertainty works | ✅ Ensemble architecture feasible |
+| **1-2** | Setup + VLA ensemble | 5 VLA models fit on GPU 0, model uncertainty works | ✅ Ensemble architecture feasible |
 | **3** | Data collection (500 episodes) | Can induce failures, collect diverse data in simulation | ✅ Data collection pipeline works |
 | **4-5** | Signal extraction | 12D feature vectors computed from VLA internals | ✅ Signal modalities extractable |
 | **5-6** | Train predictor | F1 > 0.70 @ 300ms horizon achievable | 🎯 Paper: F1 = 0.866 (target) |
@@ -210,7 +210,7 @@ These results are from **real robot** deployment. Your local dev will **validate
 
 YOUR LOCAL MACHINE (4x RTX 2080 Ti)
 ├─ GPU 0: VLA Ensemble (5× TinyVLA-1B = 11GB)
-│   └─ Epistemic uncertainty (σ²_ensemble)
+│   └─ Model uncertainty (σ²_ensemble)
 │
 ├─ GPU 1: Signal Extractor + Predictor (4GB)
 │   ├─ 12D feature extraction

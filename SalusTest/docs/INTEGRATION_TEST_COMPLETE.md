@@ -105,7 +105,7 @@ python scripts/collect_data.py --num_episodes 100 --device cuda:1
 - Memory: ~900 MB per model (4.5 GB total)
 - Multi-camera support (3x 256x256 RGB)
 - Signal extraction: 12D feature vectors
-  - Epistemic uncertainty
+  - Model uncertainty
   - Action magnitude/smoothness
   - Layer activations
 

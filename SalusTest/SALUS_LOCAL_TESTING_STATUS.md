@@ -5,10 +5,10 @@
 ### 1. VLA Integration ✅
 - **Multi-GPU bug fixed**: VLA now loads on single GPU (cuda:0)
 - **6D→7D conversion working**: Environment handles VLA's 6D actions properly
-- **Confirmed working**: Test showed VLA outputs real actions and all 18D signals extracted
+- **Confirmed working**: Test showed VLA outputs real actions and all 12D signals extracted
 
 ### 2. Signal Extraction ✅
-All 18D signals verified working:
+All 12D signals verified working:
 ```
 1-12:  Basic uncertainty (from ensemble)
 13-14: VLA internals (latent drift, OOD)
@@ -17,7 +17,7 @@ All 18D signals verified working:
 ```
 
 Example output from test:
-- Epistemic uncertainty: 0.061
+- Model uncertainty: 0.061
 - Action magnitude: 1.365 rad
 - Latent drift: extracted from transformer (norm=1.23)
 - Perturbation sensitivity: 0.517
@@ -37,7 +37,7 @@ Progress: Collecting 50 episodes with VLA control
 
 **What it's doing**:
 1. VLA controls robot to pick up red cube
-2. Every step: extracts 18D signals from VLA
+2. Every step: extracts 12D signals from VLA
 3. Labels each episode as success/failure
 4. Saves all data to Zarr format
 
@@ -58,7 +58,7 @@ Progress: Collecting 50 episodes with VLA control
 **Script ready**: `train_salus_local.py`
 
 Will train HybridTemporalPredictor:
-- **Input**: 10-step windows of 18D signals
+- **Input**: 10-step windows of 12D signals
 - **Output**: Failure predictions at 4 horizons (200ms, 300ms, 400ms, 500ms)
 - **Architecture**: Conv1D + GRU + Linear
 - **Loss**: TemporalFocalLoss (handles imbalance)
@@ -84,7 +84,7 @@ Script will show:
 ### Data Collection
 - ✅ 50 episodes collected
 - ✅ Mix of success and failure episodes
-- ✅ All 18D signals non-zero and varying
+- ✅ All 12D signals non-zero and varying
 - ✅ Proper labels attached
 
 ### SALUS Training
@@ -111,7 +111,7 @@ Possible reasons:
 
 ## 📊 What We'll Learn
 
-### Question 1: Do 18D signals contain failure information?
+### Question 1: Do 12D signals contain failure information?
 - If yes: Signals will differ between success/failure episodes
 - If no: Signals will be similar regardless of outcome
 
@@ -142,7 +142,7 @@ SmolVLA Ensemble (3× 865MB)
     └─ Exposes transformer hidden states
     ↓
 EnhancedSignalExtractor
-    ├─ Computes epistemic uncertainty (ensemble variance)
+    ├─ Computes model uncertainty (internal uncertainty signals)
     ├─ Extracts latent drift (hidden state changes)
     ├─ Tests perturbation sensitivity (3× extra VLA runs)
     └─ Checks physics constraints
@@ -173,7 +173,7 @@ Failure Predictions (4 horizons × 2 classes)
 **Zarr structure**:
 ```
 salus_data_YYYYMMDD_HHMMSS.zarr/
-├── signals/        # (N, 18) float32 - 18D signal vectors
+├── signals/        # (N, 18) float32 - 12D signal vectors
 ├── actions/        # (N, 6) float32 - VLA actions
 ├── robot_state/    # (N, 7) float32 - Joint angles
 ├── episode_id/     # (N,) int32 - Which episode

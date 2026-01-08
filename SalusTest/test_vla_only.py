@@ -15,17 +15,18 @@ device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print(f"\nDevice: {device}", flush=True)
 
 print("\n1. Loading VLA...", flush=True)
-from salus.core.vla.wrapper import SmolVLAEnsemble, EnhancedSignalExtractor
+from salus.core.vla.wrapper import SmolVLAEnsemble
+from salus.core.vla.single_model_extractor import SingleModelSignalExtractor
 
 vla = SmolVLAEnsemble(
     str(Path.home() / "models/smolvla/smolvla_base"),
-    ensemble_size=3,
+    ensemble_size=1,
     device=device
 )
 print("✅ VLA loaded", flush=True)
 
 print("\n2. Creating signal extractor...", flush=True)
-extractor = EnhancedSignalExtractor(device)
+extractor = SingleModelSignalExtractor(device)
 print("✅ Signal extractor ready", flush=True)
 
 print("\n3. Creating fake observation...", flush=True)
@@ -65,12 +66,12 @@ if 'perturbed_actions' in output:
     print(f"\nPerturbed actions shape: {perturbed.shape}", flush=True)
     print(f"Perturbation variance: {perturbed.var().item():.6f}", flush=True)
 
-print("\n6. Extracting 18D signals...", flush=True)
+print("\n6. Extracting 12D signals...", flush=True)
 robot_state = torch.randn(1, 7, device=device) * 0.5
 signals = extractor.extract(output, robot_state=robot_state)
 s = signals[0].cpu().numpy()
 
-print("\n18D SIGNALS:", flush=True)
+print("\n12D SIGNALS:", flush=True)
 names = ["Epistemic", "ActMag", "ActVar", "ActSmooth", "TrajDiv",
          "JointVar0", "JointVar1", "JointVar2", "UncMean", "UncStd",
          "UncMin", "UncMax", "LatentDrift", "OOD", "AugStab",

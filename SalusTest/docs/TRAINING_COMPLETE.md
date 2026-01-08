@@ -85,7 +85,7 @@ With Real TinyVLA + Real IsaacSim:
 ### Why Real VLA Helps
 
 **Real uncertainty signals correlate with failures:**
-- High epistemic uncertainty → More likely to fail
+- High model uncertainty → More likely to fail
 - High action variance → Unstable execution
 - Rising uncertainty trend → Degrading performance
 - These patterns are LEARNABLE!

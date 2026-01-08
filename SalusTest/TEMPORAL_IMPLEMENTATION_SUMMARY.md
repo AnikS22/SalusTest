@@ -117,7 +117,7 @@ class HardNegativeSampler:
     Sample high-uncertainty timesteps from success episodes.
 
     Strategy:
-    - Extract epistemic uncertainty (signal[0])
+    - Extract model uncertainty (signal[0])
     - Filter by threshold (> 0.5)
     - Sample top 30% most uncertain timesteps
     """
@@ -547,7 +547,7 @@ python scripts/train_temporal_predictor.py \
 
 ### Minor Issues:
 1. Dataset currently expects Zarr format - may need to handle other formats
-2. Hard negative sampling uses only epistemic uncertainty (signal[0]) - could use all signals
+2. Hard negative sampling uses only model uncertainty (signal[0]) - could use all signals
 3. No evaluation script yet - need to create comprehensive evaluation pipeline
 4. No visualization of predictions over time - would help debugging
 

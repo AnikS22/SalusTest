@@ -1,10 +1,10 @@
 """
-GUI Demo: 18D Signal Extraction from SmolVLA
+GUI Demo: 12D Signal Extraction from SmolVLA
 
 This demo shows:
 1. Robot moving with scripted actions (so you SEE movement)
 2. SmolVLA running in parallel processing the observations
-3. REAL 18D signals extracted from VLA internals every step
+3. REAL 12D signals extracted from VLA internals every step
 
 The robot uses simple scripted motions so you can actually see it move,
 while SmolVLA processes the visual observations and we extract real signals.
@@ -40,7 +40,7 @@ args.num_envs = 1  # Single environment for visualization
 
 # Create AppLauncher
 print(f"\n{'='*70}")
-print("🎥 18D SIGNAL EXTRACTION DEMO")
+print("🎥 12D SIGNAL EXTRACTION DEMO")
 print(f"{'='*70}")
 print(f"\nLaunching Isaac Lab with GUI viewer...")
 app_launcher = AppLauncher(args)
@@ -51,39 +51,41 @@ print(f"✅ Isaac Lab viewer opened!")
 import torch
 import numpy as np
 import time
-from salus.core.vla.wrapper import SmolVLAEnsemble, EnhancedSignalExtractor
+from salus.core.vla.wrapper import SmolVLAEnsemble
+from salus.core.vla.single_model_extractor import SingleModelSignalExtractor
 from salus.simulation.franka_pick_place_env import FrankaPickPlaceEnv
 
 print("✅ All modules imported")
 
 def print_signals(signals, timestep, action_source="scripted"):
-    """Print 18D signals in a readable format."""
+    """Print 12D signals in a readable format."""
     s = signals[0].cpu().numpy()
 
     print(f"\n{'─'*70}")
     print(f"⏱️  Timestep {timestep:3d} | Action: {action_source}")
     print(f"{'─'*70}")
 
-    print("📊 BASIC UNCERTAINTY (Signals 1-12) [from VLA ensemble]:")
-    print(f"   1. Epistemic Uncertainty:  {s[0]:.4f}")
+    print("📊 TEMPORAL ACTION DYNAMICS (Signals 1-4):")
+    print(f"   1. Action Volatility:      {s[0]:.4f}  {'⚠️ HIGH' if s[0] > 0.5 else '✅'}")
     print(f"   2. Action Magnitude:       {s[1]:.4f}")
-    print(f"   3. Action Variance:        {s[2]:.4f}")
-    print(f"   4. Action Smoothness:      {s[3]:.4f}")
-    print(f"   5. Trajectory Divergence:  {s[4]:.4f}")
-    print(f"   6-8. Per-Joint Variance:   [{s[5]:.3f}, {s[6]:.3f}, {s[7]:.3f}]")
-    print(f"   9-12. Unc Stats:           μ={s[8]:.3f}, σ={s[9]:.3f}, min={s[10]:.3f}, max={s[11]:.3f}")
+    print(f"   3. Action Acceleration:    {s[2]:.4f}  {'⚠️ JERKY' if s[2] > 0.3 else '✅'}")
+    print(f"   4. Trajectory Divergence:  {s[3]:.4f}")
 
-    print("\n🧠 VLA INTERNALS (Signals 13-14) [from transformer hidden states]:")
-    print(f"   13. Latent Drift:          {s[12]:.4f}  {'⚠️ HIGH' if s[12] > 0.5 else '✅'}")
-    print(f"   14. OOD Distance:          {s[13]:.4f}  {'⚠️ OOD' if s[13] > 1.0 else '✅'}")
+    print("\n🧠 VLA INTERNAL STABILITY (Signals 5-7):")
+    print(f"   5. Latent Drift:           {s[4]:.4f}  {'⚠️ HIGH' if s[4] > 0.5 else '✅'}")
+    print(f"   6. Latent Norm Spike:      {s[5]:.4f}  {'⚠️ SPIKE' if s[5] > 1.5 else '✅'}")
+    print(f"   7. OOD Distance:           {s[6]:.4f}  {'⚠️ OOD' if s[6] > 2.0 else '✅'}")
 
-    print("\n🔬 SENSITIVITY (Signals 15-16) [from perturbation testing]:")
-    print(f"   15. Aug Stability:         {s[14]:.4f}")
-    print(f"   16. Pert Sensitivity:      {s[15]:.4f}  {'⚠️ UNSTABLE' if s[15] > 0.5 else '✅'}")
+    print("\n🎲 MODEL UNCERTAINTY (Signals 8-9) [from softmax entropy]:")
+    print(f"   8. Softmax Entropy:        {s[7]:.4f}  {'⚠️ UNCERTAIN' if s[7] > 1.5 else '✅'}")
+    print(f"   9. Max Softmax Prob:       {s[8]:.4f}  {'⚠️ LOW CONF' if s[8] < 0.5 else '✅'}")
 
-    print("\n⚙️  REALITY CHECK (Signals 17-18) [from physics]:")
-    print(f"   17. Execution Mismatch:    {s[16]:.4f}  {'⚠️ DRIFT' if s[16] > 0.3 else '✅'}")
-    print(f"   18. Constraint Margin:     {s[17]:.4f}  {'⚠️ UNSAFE' if s[17] > 0.5 else '✅'}")
+    print("\n⚙️  PHYSICS REALITY CHECKS (Signals 10-11):")
+    print(f"   10. Execution Mismatch:    {s[9]:.4f}  {'⚠️ DRIFT' if s[9] > 0.3 else '✅'}")
+    print(f"   11. Constraint Margin:     {s[10]:.4f}  {'⚠️ UNSAFE' if s[10] > 0.5 else '✅'}")
+
+    print("\n⏰ TEMPORAL CONSISTENCY (Signal 12):")
+    print(f"   12. Volatility Std:        {s[11]:.4f}  {'⚠️ ERRATIC' if s[11] > 0.4 else '✅'}")
 
     # Check if signals are actually varying (proof they're real)
     signal_energy = np.abs(s).sum()
@@ -92,7 +94,7 @@ def print_signals(signals, timestep, action_source="scripted"):
     print(f"\n📈 SIGNAL STATISTICS:")
     print(f"   Total energy: {signal_energy:.4f}")
     print(f"   Variance: {variance:.4f}")
-    print(f"   Non-zero signals: {(np.abs(s) > 1e-3).sum()}/18")
+    print(f"   Non-zero signals: {(np.abs(s) > 1e-3).sum()}/12")
 
     if signal_energy > 0.5 and variance > 0.01:
         print(f"   ✅ REAL signals (varying, non-zero)")
@@ -147,7 +149,7 @@ def main():
         try:
             vla = SmolVLAEnsemble(
                 model_path=str(model_path),
-                ensemble_size=3,
+                ensemble_size=1,
                 device=device
             )
             print(f"✅ VLA loaded! ({model_path})")
@@ -158,8 +160,8 @@ def main():
 
     # Signal extractor
     print(f"\n🔍 Initializing signal extractor...")
-    signal_extractor = EnhancedSignalExtractor(device=device)
-    print(f"✅ Signal extractor ready (18D signals)")
+    signal_extractor = SingleModelSignalExtractor(device=device)
+    print(f"✅ Signal extractor ready (12D single-model signals)")
 
     # Create environment
     print(f"\n🏗️  Creating Franka environment...")
@@ -178,7 +180,7 @@ def main():
     print(f"\n📹 Watch the Isaac Lab viewer window!")
     print(f"🤖 Robot will move with scripted actions (so you SEE movement)")
     print(f"🧠 SmolVLA processes observations in parallel")
-    print(f"📊 18D signals extracted from REAL VLA internals\n")
+    print(f"📊 12D signals extracted from REAL VLA internals\n")
 
     # Run episodes
     for episode in range(args.num_episodes):
@@ -223,7 +225,7 @@ def main():
                     with torch.no_grad():
                         action_dict = vla(obs_vla, return_internals=True)
 
-                    # Extract 18D signals from VLA output
+                    # Extract 12D signals from VLA output
                     robot_state = obs['observation.state'].to(device)
                     signals = signal_extractor.extract(action_dict, robot_state=robot_state)
 
@@ -271,13 +273,13 @@ def main():
     print(f"{'='*70}")
     print(f"\nWhat you saw:")
     print(f"   ✅ Robot moving with scripted actions (visible motion)")
-    print(f"   ✅ SmolVLA processing observations in parallel (3× 865MB models)")
-    print(f"   ✅ 18D signals extracted from REAL VLA internals:")
-    print(f"      • Ensemble epistemic uncertainty")
+    print(f"   ✅ SmolVLA processing observations (single 865MB model)")
+    print(f"   ✅ 12D signals extracted from REAL VLA internals:")
+    print(f"      • Temporal action dynamics (volatility, acceleration)")
     print(f"      • Hidden states from Qwen2 transformer")
-    print(f"      • Perturbation sensitivity (3× extra VLA runs)")
+    print(f"      • Softmax entropy for uncertainty")
     print(f"      • Physics-based reality checks")
-    print(f"\n   🔬 All signals are REAL, varying, and from VLA model!")
+    print(f"\n   🔬 All signals are REAL, varying, and from single VLA model!")
     print(f"\n{'='*70}\n")
 
     # Clean shutdown

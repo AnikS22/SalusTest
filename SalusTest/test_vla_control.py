@@ -20,7 +20,7 @@ def test_vla_control():
     print("Loading SmolVLA ensemble (3 models)...")
     vla = SmolVLAEnsemble(
         model_path="lerobot/smolvla_base",
-        ensemble_size=3,
+        ensemble_size=1,
         device="cuda:0"
     )
     print("✅ VLA loaded (2.6 GB GPU memory)")

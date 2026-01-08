@@ -147,7 +147,7 @@ IsaacLab Simulation
 VLA Ensemble (5× TinyVLA-1B on GPU 0)
     ├─ Input: RGB (224×224×3) + Proprio (14D) + Language
     ├─ Output: Action (7D joint targets) + Internals
-    └─ Epistemic uncertainty from ensemble variance
+    └─ Model uncertainty from internal uncertainty signals
            ↓
 Episode Recording
     ├─ 500 episodes × 200 timesteps = 100k data points
@@ -155,7 +155,7 @@ Episode Recording
     └─ Label: success/failure + time-until-failure
            ↓
 Signal Extraction (12D feature vector per timestep)
-    ├─ Epistemic uncertainty (ensemble variance)
+    ├─ Model uncertainty (internal uncertainty signals)
     ├─ Attention entropy (transformer attention)
     ├─ Trajectory divergence (action smoothness)
     ├─ ... (9 more features)
@@ -853,7 +853,7 @@ import numpy as np
 
 class VLAEnsemble(nn.Module):
     """
-    Ensemble of TinyVLA models for epistemic uncertainty estimation.
+    Ensemble of TinyVLA models for model uncertainty estimation.
     Runs 5 models in parallel on single GPU.
     """
 
@@ -909,7 +909,7 @@ class VLAEnsemble(nn.Module):
 
         Returns:
             action_mean: (B, 7) - mean action across ensemble
-            action_var: (B, 7) - variance (epistemic uncertainty)
+            action_var: (B, 7) - variance (model uncertainty)
             internals: dict of internal activations (if requested)
         """
 
@@ -936,7 +936,7 @@ class VLAEnsemble(nn.Module):
 
         # Compute statistics
         action_mean = actions.mean(dim=1)  # (B, 7)
-        action_var = actions.var(dim=1)    # (B, 7) - epistemic uncertainty
+        action_var = actions.var(dim=1)    # (B, 7) - model uncertainty
 
         result = {
             'action': action_mean,
@@ -985,7 +985,7 @@ class SignalExtractor:
         Extract 12D signal vector from VLA output.
 
         Signals (12 dimensions):
-        1. Epistemic uncertainty (ensemble variance)
+        1. Model uncertainty (internal uncertainty signals)
         2. Attention entropy
         3. Attention degradation (change from prev step)
         4. Hidden state norm
@@ -1005,7 +1005,7 @@ class SignalExtractor:
         batch_size = vla_output['action'].shape[0]
         signals = []
 
-        # 1. Epistemic uncertainty (scalar)
+        # 1. Model uncertainty (scalar)
         epistemic = vla_output['epistemic_uncertainty']  # (B,)
         signals.append(epistemic.unsqueeze(-1))
 
@@ -1108,7 +1108,7 @@ if __name__ == "__main__":
 
     print(f"\n✅ VLA forward pass successful!")
     print(f"  Action shape: {output['action'].shape}")  # (2, 7)
-    print(f"  Epistemic uncertainty: {output['epistemic_uncertainty']}")
+    print(f"  Model uncertainty: {output['epistemic_uncertainty']}")
     print(f"  Signals shape: {signals.shape}")  # (2, 12)
     print(f"\nVLA wrapper working! Ready for data collection.")
 ```

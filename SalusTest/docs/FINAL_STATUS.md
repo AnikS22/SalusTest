@@ -190,7 +190,7 @@ This will show which arrays have inconsistent shapes, then fix accordingly.
 ## Technical Stack
 
 ### Models
-- **VLA:** SmolVLA-450M (5-model ensemble)
+- **VLA:** SmolVLA-450M (single VLA model)
 - **Tokenizer:** Qwen2-VL (from HuggingFace)
 - **Action Dim:** 7 (Franka joints)
 - **Signal Dim:** 12 (uncertainty features)
