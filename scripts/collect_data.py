@@ -3,9 +3,6 @@ SALUS Data Collection Script
 Scalable, production-ready data collection for VLA safety research
 
 Usage:
-    # Test with dummy environment (fast)
-    python scripts/collect_data.py --num_episodes 10 --use_dummy
-
     # Production with real IsaacSim (requires sim running)
     python scripts/collect_data.py --num_episodes 500
 
@@ -13,23 +10,31 @@ Usage:
     python scripts/collect_data.py --config configs/custom_config.yaml
 """
 
-import torch
-import numpy as np
 import argparse
+import json
+from datetime import datetime
 from pathlib import Path
 import sys
-from datetime import datetime
+
+import numpy as np
+import torch
 from tqdm import tqdm
-import json
+from isaaclab.app import AppLauncher
 
 # Add project to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from salus.core.vla.wrapper import SmolVLAEnsemble, SignalExtractor
-from salus.simulation.isaaclab_env import SimplePickPlaceEnv
 from salus.data.recorder import ScalableDataRecorder
 from salus.utils.config import load_config, get_data_path, get_log_path
+
+
+def _create_app_launcher():
+    parser = argparse.ArgumentParser()
+    AppLauncher.add_app_launcher_args(parser)
+    args = parser.parse_args([])
+    return AppLauncher(args)
 
 
 def compute_horizon_labels(labels_list, horizons=[6, 10, 13, 16]):
@@ -195,8 +200,6 @@ def main():
                         help='Path to config file')
     parser.add_argument('--num_episodes', type=int, default=None,
                         help='Number of episodes to collect (overrides config)')
-    parser.add_argument('--use_dummy', action='store_true',
-                        help='Use dummy environment (no IsaacSim required)')
     parser.add_argument('--device', type=str, default='cuda:0',
                         help='CUDA device')
     parser.add_argument('--save_dir', type=str, default=None,
@@ -226,7 +229,6 @@ def main():
 
     print(f"   Episodes to collect: {num_episodes}")
     print(f"   Max episode length: {max_episode_length}")
-    print(f"   Using dummy environment: {args.use_dummy}")
     print(f"   GUI rendering: {args.render}")
 
     # Setup data directory
@@ -260,13 +262,17 @@ def main():
 
     # Initialize environment
     print(f"\n🏗️  Initializing Environment...")
-    if args.use_dummy:
-        from salus.simulation.isaaclab_env import SimplePickPlaceEnv
-        env = SimplePickPlaceEnv(num_envs=num_envs, device=args.device, render=args.render)
-    else:
-        print("   ✅ Using real IsaacLab environment with Franka robot")
-        from salus.simulation.franka_pick_place_env import FrankaPickPlaceEnv
-        env = FrankaPickPlaceEnv(num_envs=num_envs, device=args.device, render=args.render, max_episode_length=max_episode_length)
+    print("   ✅ Using real IsaacLab environment with Franka robot")
+    app_launcher = _create_app_launcher()
+    simulation_app = app_launcher.app
+    from salus.simulation.isaaclab_env import SimplePickPlaceEnv
+    env = SimplePickPlaceEnv(
+        simulation_app=simulation_app,
+        num_envs=num_envs,
+        device=args.device,
+        render=args.render,
+        max_episode_length=max_episode_length
+    )
 
     # Initialize data recorder
     print(f"\n💾 Initializing Data Recorder...")
@@ -351,6 +357,7 @@ def main():
 
         # Close environment
         env.close()
+        simulation_app.close()
 
         print(f"\n✅ Data collection finished successfully!")
         print(f"\n💡 Next steps:")

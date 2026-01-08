@@ -10,7 +10,15 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from salus.core.vla.smolvla_wrapper import SmolVLAEnsemble
-from salus.simulation.isaaclab_env import SimplePickPlaceEnv
+from isaaclab.app import AppLauncher
+
+def _create_app_launcher():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    AppLauncher.add_app_launcher_args(parser)
+    args = parser.parse_args([])
+    return AppLauncher(args)
 
 print("="*70)
 print("PRODUCTION CONFIG TEST: ensemble_size=3")
@@ -37,7 +45,15 @@ print(f"   Signal values: {signals[0].cpu().numpy()}")
 
 # Test 3: With real environment
 print("\n3. Testing with environment...")
-env = SimplePickPlaceEnv(num_envs=1, device="cuda:0", render=False)
+app_launcher = _create_app_launcher()
+simulation_app = app_launcher.app
+from salus.simulation.isaaclab_env import SimplePickPlaceEnv
+env = SimplePickPlaceEnv(
+    simulation_app=simulation_app,
+    num_envs=1,
+    device="cuda:0",
+    render=False
+)
 obs = env.reset()
 
 image = obs['observation.images.camera1']
@@ -80,6 +96,7 @@ else:
     print(f"⚠️  High memory usage!")
 
 env.close()
+simulation_app.close()
 
 print("\n" + "="*70)
 print("✅ ALL PRODUCTION CONFIG TESTS PASSED!")

@@ -10,21 +10,29 @@ Usage:
     python scripts/collect_episodes_mvp.py --num_episodes 500 --use_real_vla
 """
 
-import torch
-import numpy as np
 import argparse
+from datetime import datetime
 from pathlib import Path
 import sys
-from datetime import datetime
+
+import numpy as np
+import torch
 from tqdm import tqdm
+from isaaclab.app import AppLauncher
 
 # Add project to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from salus.core.vla.smolvla_wrapper import SmolVLAEnsemble, SimpleSignalExtractor
-from salus.simulation.isaaclab_env import SimplePickPlaceEnv
 from salus.data.recorder import ScalableDataRecorder
+
+
+def _create_app_launcher():
+    parser = argparse.ArgumentParser()
+    AppLauncher.add_app_launcher_args(parser)
+    args = parser.parse_args([])
+    return AppLauncher(args)
 
 
 def collect_episode(env, vla, signal_extractor, episode_id, max_steps):
@@ -161,7 +169,15 @@ def main():
 
     # Initialize environment
     print(f"\n🏗️  Initializing Environment...")
-    env = SimplePickPlaceEnv(num_envs=1, device=args.device, render=False)
+    app_launcher = _create_app_launcher()
+    simulation_app = app_launcher.app
+    from salus.simulation.isaaclab_env import SimplePickPlaceEnv
+    env = SimplePickPlaceEnv(
+        simulation_app=simulation_app,
+        num_envs=1,
+        device=args.device,
+        render=False
+    )
 
     # Initialize recorder
     print(f"\n💾 Initializing Recorder...")
@@ -291,6 +307,7 @@ def main():
         # Close
         recorder.close()
         env.close()
+        simulation_app.close()
 
         print(f"\n✅ Collection finished!")
         print(f"\n📋 Next steps:")
