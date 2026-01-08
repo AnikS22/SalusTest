@@ -95,16 +95,15 @@ class FrankaPickPlaceEnv:
             # Initialize episode tracking
             self.episode_length_buf = torch.zeros(num_envs, dtype=torch.int, device=device)
             self.reset_buf = torch.ones(num_envs, dtype=torch.bool, device=device)
+            self.goal_pos = None
 
             print("   ✅ Real IsaacLab environment ready!")
 
         except Exception as e:
-            import traceback
-            print(f"   ❌ Failed to initialize IsaacLab: {e}")
-            print(f"   Full traceback:")
-            traceback.print_exc()
-            print("   Falling back to dummy environment...")
-            self._init_dummy_mode()
+            raise RuntimeError(
+                "Failed to initialize IsaacLab. Ensure IsaacSim is running and "
+                "AppLauncher was created before importing this module."
+            ) from e
 
     def _setup_simulation(self):
         """Setup Isaac Sim simulation context"""
@@ -235,24 +234,6 @@ class FrankaPickPlaceEnv:
         # Note: sim.reset() will be called in the first reset() call, not here
         self._scene_initialized = False
 
-    def _init_dummy_mode(self):
-        """Fallback to dummy mode if IsaacSim fails"""
-        self.is_dummy = True
-        self.current_step = 0
-        self.robot_state = torch.zeros(self.num_envs, 7, device=self.device)
-
-        # Initialize episode tracking for dummy mode
-        self.episode_length_buf = torch.zeros(self.num_envs, dtype=torch.int, device=self.device)
-        self.reset_buf = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
-
-        # Dummy camera images
-        self.camera_images = {
-            'camera1': torch.randint(0, 255, (self.num_envs, 3, 256, 256), device=self.device, dtype=torch.uint8),
-            'camera2': torch.randint(0, 255, (self.num_envs, 3, 256, 256), device=self.device, dtype=torch.uint8),
-            'camera3': torch.randint(0, 255, (self.num_envs, 3, 256, 256), device=self.device, dtype=torch.uint8),
-        }
-        print("   ⚠️  Running in dummy mode (IsaacSim not available)")
-
     def reset(self, env_ids: Optional[torch.Tensor] = None):
         """
         Reset environment(s)
@@ -269,30 +250,27 @@ class FrankaPickPlaceEnv:
         # Reset episode tracking
         self.episode_length_buf[env_ids] = 0
 
-        if hasattr(self, 'is_dummy'):
-            # Dummy mode reset
-            self.current_step = 0
-            self.robot_state[env_ids] = 0.0
-        else:
-            # Initialize simulation on first reset
-            if not self._scene_initialized:
-                print("   Initializing simulation (first reset)...")
-                self.sim.reset()
-                self._scene_initialized = True
-                print("   Simulation initialized!")
+        # Initialize simulation on first reset
+        if not self._scene_initialized:
+            print("   Initializing simulation (first reset)...")
+            self.sim.reset()
+            self._scene_initialized = True
+            print("   Simulation initialized!")
 
-            # Real IsaacLab reset
-            # Reset robot to home pose (9 joints: 7 arm + 2 gripper fingers)
-            home_pos = self.scene["robot"].data.default_joint_pos[env_ids].clone()
-            self.scene["robot"].write_joint_state_to_sim(home_pos, torch.zeros_like(home_pos), env_ids=env_ids)
+        # Real IsaacLab reset
+        # Reset robot to home pose (9 joints: 7 arm + 2 gripper fingers)
+        home_pos = self.scene["robot"].data.default_joint_pos[env_ids].clone()
+        self.scene["robot"].write_joint_state_to_sim(home_pos, torch.zeros_like(home_pos), env_ids=env_ids)
 
-            # Reset cube position (randomize slightly)
-            cube_pos = torch.tensor([[0.5, 0.0, 0.05]], device=self.device).repeat(len(env_ids), 1)
-            cube_pos[:, :2] += torch.randn(len(env_ids), 2, device=self.device) * 0.05
-            self.scene["cube"].write_root_pose_to_sim(
-                torch.cat([cube_pos, torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=self.device).repeat(len(env_ids), 1)], dim=-1),
-                env_ids=env_ids
-            )
+        # Reset cube position (randomize slightly)
+        cube_pos = torch.tensor([[0.5, 0.0, 0.05]], device=self.device).repeat(len(env_ids), 1)
+        cube_pos[:, :2] += torch.randn(len(env_ids), 2, device=self.device) * 0.05
+        self.scene["cube"].write_root_pose_to_sim(
+            torch.cat([cube_pos, torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=self.device).repeat(len(env_ids), 1)], dim=-1),
+            env_ids=env_ids
+        )
+
+        self._sample_goal_positions(env_ids)
 
         return self._get_observation()
 
@@ -311,31 +289,19 @@ class FrankaPickPlaceEnv:
         # Increment episode length
         self.episode_length_buf += 1
 
-        if hasattr(self, 'is_dummy'):
-            # Dummy mode step
-            self.current_step += 1
-            self.robot_state = actions.clone()
-
-            # Random images
-            for cam in self.camera_images:
-                self.camera_images[cam] = torch.randint(
-                    0, 255, (self.num_envs, 3, 256, 256),
-                    device=self.device, dtype=torch.uint8
-                )
+        # Real IsaacLab step
+        # Pad action from 7 DOF (arm) to 9 DOF (arm + 2 gripper fingers)
+        if actions.shape[-1] == 7:
+            # Add gripper commands (open gripper by default)
+            gripper_cmd = torch.ones(actions.shape[0], 2, device=actions.device) * 0.04
+            actions_full = torch.cat([actions, gripper_cmd], dim=-1)
         else:
-            # Real IsaacLab step
-            # Pad action from 7 DOF (arm) to 9 DOF (arm + 2 gripper fingers)
-            if actions.shape[-1] == 7:
-                # Add gripper commands (open gripper by default)
-                gripper_cmd = torch.ones(actions.shape[0], 2, device=actions.device) * 0.04
-                actions_full = torch.cat([actions, gripper_cmd], dim=-1)
-            else:
-                actions_full = actions
+            actions_full = actions
 
-            self.scene["robot"].set_joint_position_target(actions_full)
-            self.scene.write_data_to_sim()
-            self.sim.step()
-            self.scene.update(self.sim.get_physics_dt())
+        self.scene["robot"].set_joint_position_target(actions_full)
+        self.scene.write_data_to_sim()
+        self.sim.step()
+        self.scene.update(self.sim.get_physics_dt())
 
         # Check termination
         dones = self.episode_length_buf >= self.max_episode_length
@@ -353,75 +319,75 @@ class FrankaPickPlaceEnv:
     def _get_observation(self) -> Dict:
         """Get observation in SmolVLA format"""
 
-        if hasattr(self, 'is_dummy'):
-            # Dummy mode observations
-            return {
-                'observation.images.camera1': self.camera_images['camera1'],
-                'observation.images.camera2': self.camera_images['camera2'],
-                'observation.images.camera3': self.camera_images['camera3'],
-                'observation.state': self.robot_state,
-                'task': 'pick up the red cube and place it in the blue zone'
-            }
-        else:
-            # Real IsaacLab observations
-            # Get all joint positions (9 joints for Franka: 7 arm + 2 gripper)
-            robot_state = self.scene["robot"].data.joint_pos
+        # Real IsaacLab observations
+        # Get all joint positions (9 joints for Franka: 7 arm + 2 gripper)
+        robot_state = self.scene["robot"].data.joint_pos
 
-            # Get camera images from Isaac Lab (format: [batch, height, width, channels])
-            cam1_rgb = self.scene["camera_front"].data.output["rgb"]
-            cam2_rgb = self.scene["camera_side"].data.output["rgb"]
-            cam3_rgb = self.scene["camera_top"].data.output["rgb"]
+        # Get camera images from Isaac Lab (format: [batch, height, width, channels])
+        cam1_rgb = self.scene["camera_front"].data.output["rgb"]
+        cam2_rgb = self.scene["camera_side"].data.output["rgb"]
+        cam3_rgb = self.scene["camera_top"].data.output["rgb"]
 
-            # DEBUG: Print shapes
-            if not hasattr(self, '_debug_printed'):
-                print(f"   DEBUG: cam1_rgb shape = {cam1_rgb.shape}, dtype = {cam1_rgb.dtype}")
-                print(f"   DEBUG: cam1_rgb min/max = {cam1_rgb.min()}/{cam1_rgb.max()}")
-                self._debug_printed = True
+        # DEBUG: Print shapes
+        if not hasattr(self, '_debug_printed'):
+            print(f"   DEBUG: cam1_rgb shape = {cam1_rgb.shape}, dtype = {cam1_rgb.dtype}")
+            print(f"   DEBUG: cam1_rgb min/max = {cam1_rgb.min()}/{cam1_rgb.max()}")
+            self._debug_printed = True
 
-            # Convert from Isaac Lab format [B, H, W, C] to VLA format [B, C, H, W]
-            cam1_rgb = cam1_rgb.permute(0, 3, 1, 2)  # [B, H, W, C] -> [B, C, H, W]
-            cam2_rgb = cam2_rgb.permute(0, 3, 1, 2)
-            cam3_rgb = cam3_rgb.permute(0, 3, 1, 2)
+        # Convert from Isaac Lab format [B, H, W, C] to VLA format [B, C, H, W]
+        cam1_rgb = cam1_rgb.permute(0, 3, 1, 2)  # [B, H, W, C] -> [B, C, H, W]
+        cam2_rgb = cam2_rgb.permute(0, 3, 1, 2)
+        cam3_rgb = cam3_rgb.permute(0, 3, 1, 2)
 
-            # Return only the first 7 joints (arm) for VLA compatibility
-            return {
-                'observation.images.camera1': cam1_rgb,
-                'observation.images.camera2': cam2_rgb,
-                'observation.images.camera3': cam3_rgb,
-                'observation.state': robot_state[:, :7],  # Only arm joints for VLA
-                'task': 'pick up the red cube and place it in the blue zone'
-            }
+        # Return only the first 7 joints (arm) for VLA compatibility
+        return {
+            'observation.images.camera1': cam1_rgb,
+            'observation.images.camera2': cam2_rgb,
+            'observation.images.camera3': cam3_rgb,
+            'observation.state': robot_state[:, :7],  # Only arm joints for VLA
+            'task': 'pick up the red cube and place it in the blue zone'
+        }
 
     def _compute_rewards_and_dones(self, dones: torch.Tensor) -> Dict:
         """Compute success/failure for each environment"""
 
-        if hasattr(self, 'is_dummy'):
-            # Dummy success/failure
-            success = torch.rand(self.num_envs, device=self.device) > 0.5
-            failure_type = torch.randint(0, 4, (self.num_envs,), device=self.device)
-        else:
-            # Real success detection
-            cube_pos = self.scene["cube"].data.root_pos_w
-            goal_pos = torch.tensor([0.3, 0.5, 0.2], device=self.device)
+        # Real success detection
+        cube_pos = self.scene["cube"].data.root_pos_w
+        if self.goal_pos is None:
+            self._sample_goal_positions(torch.arange(self.num_envs, device=self.device))
+        goal_pos = self.goal_pos
 
-            # Success: cube within 5cm of goal
-            dist_to_goal = torch.norm(cube_pos - goal_pos.unsqueeze(0), dim=-1)
-            success = dist_to_goal < 0.05
+        # Success: cube within 5cm of goal
+        dist_to_goal = torch.norm(cube_pos - goal_pos, dim=-1)
+        success = dist_to_goal < 0.05
 
-            # Failure detection
-            cube_fell = cube_pos[:, 2] < 0.01  # Below table
-            timeout = dones
+        # Failure detection
+        cube_fell = cube_pos[:, 2] < 0.01  # Below table
+        timeout = dones
 
-            failure_type = torch.where(
-                cube_fell, 1,  # Drop
-                torch.where(timeout, 2, 3)  # Timeout or other
-            )
+        failure_type = torch.where(
+            cube_fell, 1,  # Drop
+            torch.where(timeout, 2, 3)  # Timeout or other
+        )
 
         return {
             'success': success,
             'failure_type': failure_type,
             'episode_length': self.episode_length_buf.clone()
         }
+
+    def _sample_goal_positions(self, env_ids: torch.Tensor):
+        """Sample goal positions to create a changing scene."""
+        if self.goal_pos is None:
+            self.goal_pos = torch.zeros(self.num_envs, 3, device=self.device)
+
+        base = torch.tensor([0.3, 0.5, 0.2], device=self.device)
+        noise = torch.zeros(len(env_ids), 3, device=self.device)
+        noise[:, 0] = torch.randn(len(env_ids), device=self.device) * 0.05
+        noise[:, 1] = torch.randn(len(env_ids), device=self.device) * 0.05
+        noise[:, 2] = torch.randn(len(env_ids), device=self.device) * 0.02
+
+        self.goal_pos[env_ids] = base + noise
 
     def close(self):
         """Clean up"""
