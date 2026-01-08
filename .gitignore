@@ -5,6 +5,7 @@ __pycache__/
 *.so
 .Python
 venv*/
+venv_salus/
 env/
 ENV/
 *.egg-info/
@@ -35,6 +36,18 @@ logs/
 wandb/
 tensorboard/
 
+# LaTeX
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.toc
+*.bbl
+*.blg
+*.pdf
+
 # IDE
 .vscode/
 .idea/
@@ -50,6 +63,9 @@ tensorboard/
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
+
+# Requirements (will be generated)
+requirements.txt
 
 # Test outputs
 test_output/
@@ -69,5 +85,6 @@ OpenVLA/
 
 # Simulation cache
 .mujoco/
+.isaac/
 =stealth,
 ,
