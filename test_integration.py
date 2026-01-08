@@ -13,6 +13,15 @@ import traceback
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+def _create_app_launcher():
+    import argparse
+    from isaaclab.app import AppLauncher
+
+    parser = argparse.ArgumentParser()
+    AppLauncher.add_app_launcher_args(parser)
+    args = parser.parse_args([])
+    return AppLauncher(args)
+
 def test_1_smolvla_import():
     """Test 1: Can we import SmolVLA?"""
     print("\n" + "="*70)
@@ -90,9 +99,15 @@ def test_4_environment():
     print("TEST 4: Environment")
     print("="*70)
     try:
+        app_launcher = _create_app_launcher()
+        simulation_app = app_launcher.app
         from salus.simulation.isaaclab_env import SimplePickPlaceEnv
-
-        env = SimplePickPlaceEnv(num_envs=1, device="cuda:0", render=False)
+        env = SimplePickPlaceEnv(
+            simulation_app=simulation_app,
+            num_envs=1,
+            device="cuda:0",
+            render=False
+        )
         print(f"✅ PASS: Environment loaded")
 
         # Test reset
@@ -113,6 +128,7 @@ def test_4_environment():
         print(f"✅ PASS: Environment step works")
 
         env.close()
+        simulation_app.close()
         return True, obs
     except Exception as e:
         print(f"❌ FAIL: {e}")
@@ -126,10 +142,16 @@ def test_5_environment_vla_compatibility():
     print("="*70)
 
     try:
+        app_launcher = _create_app_launcher()
+        simulation_app = app_launcher.app
         from salus.simulation.isaaclab_env import SimplePickPlaceEnv
         from salus.core.vla.smolvla_wrapper import SmolVLAEnsemble
-
-        env = SimplePickPlaceEnv(num_envs=1, device="cuda:0", render=False)
+        env = SimplePickPlaceEnv(
+            simulation_app=simulation_app,
+            num_envs=1,
+            device="cuda:0",
+            render=False
+        )
         obs = env.reset()
 
         # Check if we can extract what VLA needs
@@ -182,6 +204,7 @@ def test_5_environment_vla_compatibility():
         print(f"   ✅ Environment accepts VLA action")
 
         env.close()
+        simulation_app.close()
         del ensemble
         torch.cuda.empty_cache()
 
@@ -262,10 +285,16 @@ def test_7_memory_leak():
     print("="*70)
 
     try:
+        app_launcher = _create_app_launcher()
+        simulation_app = app_launcher.app
         from salus.simulation.isaaclab_env import SimplePickPlaceEnv
         from salus.core.vla.smolvla_wrapper import SmolVLAEnsemble
-
-        env = SimplePickPlaceEnv(num_envs=1, device="cuda:0", render=False)
+        env = SimplePickPlaceEnv(
+            simulation_app=simulation_app,
+            num_envs=1,
+            device="cuda:0",
+            render=False
+        )
         ensemble = SmolVLAEnsemble(ensemble_size=1, device="cuda:0")
 
         initial_mem = torch.cuda.memory_allocated(0) / (1024**2)
@@ -304,6 +333,7 @@ def test_7_memory_leak():
             result = True  # Still pass but warn
 
         env.close()
+        simulation_app.close()
         del ensemble
         torch.cuda.empty_cache()
 
@@ -321,13 +351,20 @@ def test_8_full_episode():
     print("="*70)
 
     try:
-        from salus.simulation.isaaclab_env import SimplePickPlaceEnv
-        from salus.core.vla.smolvla_wrapper import SmolVLAEnsemble
-        from salus.data.recorder import ScalableDataRecorder
         from datetime import datetime
 
         # Initialize
-        env = SimplePickPlaceEnv(num_envs=1, device="cuda:0", render=False)
+        app_launcher = _create_app_launcher()
+        simulation_app = app_launcher.app
+        from salus.simulation.isaaclab_env import SimplePickPlaceEnv
+        from salus.core.vla.smolvla_wrapper import SmolVLAEnsemble
+        from salus.data.recorder import ScalableDataRecorder
+        env = SimplePickPlaceEnv(
+            simulation_app=simulation_app,
+            num_envs=1,
+            device="cuda:0",
+            render=False
+        )
         ensemble = SmolVLAEnsemble(ensemble_size=1, device="cuda:0")
 
         save_dir = Path("test_full_episode") / datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -409,6 +446,7 @@ def test_8_full_episode():
             shutil.rmtree(save_dir.parent)
 
         env.close()
+        simulation_app.close()
         del ensemble
         torch.cuda.empty_cache()
 

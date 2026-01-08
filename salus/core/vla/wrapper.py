@@ -234,6 +234,7 @@ class SignalExtractor:
     def __init__(self):
         # History buffer for trajectory features
         self.action_history = []
+        self.uncertainty_history = []
         self.max_history = 10  # Last 10 actions
 
     def extract(self, vla_output: Dict) -> torch.Tensor:
@@ -294,6 +295,11 @@ class SignalExtractor:
         if len(self.action_history) > self.max_history:
             self.action_history.pop(0)
 
+        # Track uncertainty history for rolling stats
+        self.uncertainty_history.append(epistemic.detach())
+        if len(self.uncertainty_history) > self.max_history:
+            self.uncertainty_history.pop(0)
+
         # 6-8. Per-joint/dimension variances (first 3)
         n_dims_to_track = min(3, action_dim)
         signals.append(action_var[:, :n_dims_to_track])  # (B, 3)
@@ -304,13 +310,10 @@ class SignalExtractor:
             signals[-1] = torch.cat([signals[-1], padding], dim=-1)
 
         # 9-12. Rolling statistics of uncertainty
-        if len(self.action_history) >= 2:
-            # Get uncertainty history
-            uncertainty_history = []
-            for _ in range(min(len(self.action_history), 5)):
-                uncertainty_history.append(epistemic)  # Simplified - using current
-
-            uncertainty_tensor = torch.stack(uncertainty_history)
+        if len(self.uncertainty_history) >= 2:
+            # Use real uncertainty history (latest up to 5 steps)
+            history_window = self.uncertainty_history[-5:]
+            uncertainty_tensor = torch.stack(history_window)
 
             # Compute rolling statistics
             unc_mean = uncertainty_tensor.mean(dim=0)
@@ -336,6 +339,7 @@ class SignalExtractor:
     def reset(self):
         """Reset history (call at episode start)"""
         self.action_history = []
+        self.uncertainty_history = []
 
 
 # Test script
@@ -384,6 +388,5 @@ if __name__ == "__main__":
     print("   2. Create data collection script")
     print("   3. Run data collection with real observations")
     print("\n✨ The VLA wrapper will work with real environment observations")
-
 
 
