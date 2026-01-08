@@ -11,6 +11,8 @@
 - Model can learn temporal patterns on synthetic data
 - Multi-horizon prediction (4 horizons × 4 failure types) is implemented
 - Test infrastructure exists and some tests pass
+- **Recent Fix (PR #1, merged 2026-01-08)**: Uncertainty history tracking bug fixed
+- **Recent Fix (PR #1)**: Dummy fallback mode removed - now requires real IsaacLab
 
 ⚠️ **What's Unclear:**
 - Signal extraction implementation has inconsistencies (12D vs 18D signals)
@@ -84,7 +86,7 @@ class HybridTemporalPredictor(nn.Module):
 
 #### 2. Signal Extraction (`salus/core/vla/wrapper.py`)
 
-**Implementation**: ⚠️ **INCONSISTENT**
+**Implementation**: ⚠️ **INCONSISTENT** (but recently improved)
 
 **Documentation Claims**:
 - 18D enhanced signals including:
@@ -99,7 +101,12 @@ class HybridTemporalPredictor(nn.Module):
 - `EnhancedSignalExtractor` class exists but may not be fully integrated
 - Single-model extractor (`SingleModelSignalExtractor`) also exists
 
-**Verdict**: Signal dimension mismatch between documentation (18D) and implementation (12D).
+**Recent Fixes (PR #1, merged 2026-01-08)**:
+- ✅ **Fixed uncertainty history tracking**: Now properly tracks `uncertainty_history` instead of repeating current value
+- ✅ **Rolling statistics now use real past values**: Uses `self.uncertainty_history[-5:]` for mean/std/min/max calculations
+- ✅ **Proper history reset**: `uncertainty_history` is reset at episode start
+
+**Verdict**: Signal dimension mismatch between documentation (18D) and implementation (12D), but uncertainty tracking bug has been fixed.
 
 #### 3. VLA Ensemble (`salus/core/vla/wrapper.py`)
 
@@ -187,16 +194,19 @@ Checks passed: 2/6
    - Code exists to load SmolVLA models
    - No evidence models actually run or produce real signals
    - Default ensemble size is 1, not 5 as claimed
+   - **Recent Fix (PR #1)**: Dummy fallback removed - now requires real IsaacLab (good for ensuring real tests)
 
 2. **Signal Extraction**
    - Documentation claims 18D enhanced signals
    - Implementation uses 12D signals
    - Enhanced signal extractor exists but integration unclear
+   - **Recent Fix (PR #1)**: Uncertainty history tracking bug fixed - rolling stats now use real past values
 
 3. **Real Robot Data**
    - No test results on real Isaac Lab simulation data
    - No validation on actual robot failures
    - All tests use synthetic data
+   - **Recent Fix (PR #1)**: Integration scripts updated to properly manage IsaacLab lifecycle
 
 4. **Performance Metrics**
    - Claims "99.66% discrimination" but only on synthetic data
@@ -245,6 +255,23 @@ Checks passed: 2/6
 
 ---
 
+## Recent Updates (PR #1, Merged 2026-01-08)
+
+**Pull Request**: "Require real IsaacLab in tests and fix SignalExtractor uncertainty history"
+
+**Key Fixes**:
+1. ✅ **Uncertainty History Bug Fixed**: `SignalExtractor` now properly tracks `uncertainty_history` and uses real past values for rolling statistics (mean, std, min, max) instead of repeating the current value
+2. ✅ **Dummy Fallback Removed**: `FrankaPickPlaceEnv` now raises `RuntimeError` if IsaacLab fails to initialize, ensuring tests run against real simulator
+3. ✅ **Integration Scripts Updated**: All integration scripts and tests now properly create and manage `AppLauncher` lifecycle
+4. ✅ **Code Quality**: Net reduction of 140 lines (381 deletions, 241 additions) - cleaner, more maintainable code
+
+**Impact**: These fixes ensure that:
+- Uncertainty features are computed from real historical data (more accurate)
+- Tests cannot accidentally pass with dummy data (more reliable)
+- IsaacLab lifecycle is properly managed (prevents resource leaks)
+
+---
+
 ## Conclusion
 
 **SALUS is a REAL system** with:
@@ -252,6 +279,7 @@ Checks passed: 2/6
 - ✅ Working Conv1D + GRU implementation
 - ✅ Multi-horizon prediction capability
 - ✅ Learning capability on synthetic data
+- ✅ **Recent fixes improve reliability and accuracy**
 
 **However, several claims are UNVERIFIED or INCONSISTENT:**
 - ⚠️ Signal dimension mismatch (12D vs 18D)
@@ -266,5 +294,5 @@ Checks passed: 2/6
 3. Validation on real robot data
 4. Performance metrics on real failures
 
-The core idea and architecture are sound, but the system is not yet fully validated as claimed.
+The core idea and architecture are sound, and recent fixes have improved the system's reliability. However, the system is not yet fully validated as claimed.
 
