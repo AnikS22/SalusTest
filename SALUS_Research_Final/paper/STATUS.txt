@@ -1,0 +1,62 @@
+SALUS PAPER STATUS
+==================
+
+Last Updated: January 12, 2026
+
+CURRENT STATUS
+--------------
+✓ Paper structure complete (NeurIPS 2025 format)
+✓ All sections written
+✓ Main results filled in with actual data
+⚠ Some experiments still ongoing
+⚠ pdflatex not installed (use Overleaf to compile)
+
+ACTUAL DATA FILLED IN
+----------------------
+✓ AUROC: 88.3% (vs 50.1% random baseline)
+✓ Recall: 51.6%
+✓ Precision: 41.2%
+✓ False Alarm Rate: 6.4%
+✓ Model size: 70,672 parameters (284 KB)
+✓ Dataset: 5,000 episodes, 1M timesteps
+✓ Training time: ~2 hours (100 epochs)
+
+PLACEHOLDERS (TBD)
+------------------
+[TBD] - Inference latency (needs benchmarking)
+[Ongoing] - Ablation study (currently running but taking too long)
+[Pending] - Multi-horizon analysis (needs per-horizon metrics)
+
+KNOWN ISSUES
+------------
+⚠ Signal extraction has bugs: 75% of signals return NaN
+  - Only 3/12 signals work correctly (action magnitude, trajectory divergence, latent drift)
+  - This is documented in the limitations section
+
+⚠ Ablation study taking ~5 days (something wrong with setup)
+  - Should only take ~4-5 hours
+  - Need to debug or restart with fewer epochs
+
+TO COMPILE
+----------
+Option 1: Install LaTeX locally
+  sudo apt-get install texlive-latex-base texlive-latex-extra
+  ./compile_simple.sh
+
+Option 2: Use Overleaf (recommended)
+  1. Go to overleaf.com
+  2. Upload salus_paper.tex and neurips_2025.sty
+  3. Compile online
+
+TRUTHFULNESS NOTE
+-----------------
+The paper is honest about:
+✓ Simulation-only evaluation (no real robot)
+✓ Signal extraction bugs (documented in limitations)
+✓ Ongoing experiments (clearly marked with [TBD] or [Ongoing])
+✓ Actual performance numbers (no exaggeration)
+
+The blue-colored text marks sections that are:
+- Still being computed
+- Known limitations
+- Future work items

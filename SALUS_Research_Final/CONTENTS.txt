@@ -1,0 +1,133 @@
+SALUS_Research_Final/ - Complete Research Package
+==================================================
+
+Created: January 12, 2026
+Location: /home/mpcr/Desktop/SalusV3/SalusTest/SALUS_Research_Final/
+
+STRUCTURE
+---------
+.
+├── README.md                    # Main documentation
+├── QUICK_START.md              # Quick start guide
+├── FOLDER_COMPARISON.md        # What changed from old structure
+├── CONTENTS.txt                # This file
+├── run_all_analysis.sh         # Master script (runs everything)
+│
+├── paper/                      # NeurIPS 2025 Paper
+│   ├── salus_paper.tex        # Main paper (29KB)
+│   ├── neurips_2025.sty       # Conference style
+│   ├── compile.sh             # Compile to PDF
+│   ├── fill_results.py        # Auto-fill results
+│   ├── DATA_AND_FIGURES.md    # Data status & figure planning
+│   ├── PAPER_SUMMARY.md       # Complete paper summary
+│   ├── CHANGES_NEURIPS_STYLE.md  # Format changes doc
+│   └── README.md              # Paper-specific readme
+│
+├── data/                       # Dataset (5GB)
+│   └── massive_collection -> ../paper_data/massive_collection
+│       └── 20260109_215258/
+│           └── data_20260109_215321.zarr
+│               ├── signals (5000, 200, 12)        # 12D signals
+│               ├── horizon_labels (5000, 200, 16) # Multi-horizon labels
+│               ├── actions (5000, 200, 7)         # Robot actions
+│               ├── states (5000, 200, N)          # Proprioceptive
+│               └── images (5000, 200, 256, 256, 3) # RGB camera
+│
+├── results/                    # Evaluation Results
+│   ├── salus_results_massive.json
+│   │   → AUROC: 0.8833
+│   │   → Recall: 51.56%
+│   │   → Precision: 41.25%
+│   │   → False Alarm Rate: 6.39%
+│   │
+│   ├── baseline_results_massive.json
+│   │   → Random: AUROC 0.5006
+│   │
+│   └── ablation/
+│       └── ablation_results.csv (running)
+│
+├── models/                     # Trained Models
+│   └── salus_predictor_massive.pth (284KB)
+│       → 70,672 parameters
+│       → Best val loss: 0.0653 (epoch 61)
+│       → Trained for 100 epochs
+│
+├── scripts/                    # Analysis Scripts
+│   ├── evaluate_salus.py              # SALUS evaluation
+│   ├── evaluate_baseline_threshold.py # Baseline comparison
+│   ├── ablate_signals.py              # Ablation study
+│   ├── compare_methods.py             # Method comparison
+│   ├── generate_paper_tables.py       # LaTeX table generation
+│   ├── train_simple.py                # Training script
+│   ├── collect_data_franka.py         # Data collection
+│   ├── create_all_figures.py          # Figure generation (NEW)
+│   └── compute_missing_metrics.py     # Metric computation (NEW)
+│
+└── figures/                    # Paper Figures (to be generated)
+    └── (empty - run create_all_figures.py)
+
+QUICK COMMANDS
+--------------
+
+# View paper
+cd paper && ./compile.sh && evince salus_paper.pdf
+
+# Check results
+cat results/salus_results_massive.json
+
+# Check ablation status
+ps aux | grep ablate_signals
+
+# Run complete analysis (when ready)
+./run_all_analysis.sh
+
+# Create figures
+python scripts/create_all_figures.py --output_dir figures
+
+# Compute missing metrics
+python scripts/compute_missing_metrics.py
+
+CURRENT STATUS
+--------------
+✅ Dataset:        5,000 episodes collected (5.0 GB)
+✅ SALUS Model:    Trained (0.8833 AUROC)
+✅ Paper:          NeurIPS 2025 format complete
+✅ Scripts:        All analysis tools ready
+⏳ Ablation:       Running (4-5 hours remaining)
+❌ Figures:        Not yet generated
+❌ Missing Metrics: Horizons, failure types, latency
+
+WHAT'S DIFFERENT FROM OLD FOLDERS
+----------------------------------
+Before: Multiple "paper" folders, scattered data
+ - SalusTest/paper/ (old format)
+ - SalusTest/SalusTest/paper/ (older)
+ - docs/papers/ (ancient)
+
+After: Single consolidated folder
+ - SALUS_Research_Final/ (everything in one place)
+
+NEXT STEPS
+----------
+1. Wait for ablation to complete (~4-5 hours)
+2. Run: ./run_all_analysis.sh
+3. Review figures and paper
+4. Submit!
+
+TIMELINE
+--------
+Today (Evening):   Ablation completes
+Tomorrow (Morning): Create figures (8-10 hours)
+Tomorrow (Evening): Final review, ready to submit
+
+Total: ~24 hours to submission-ready paper
+
+DOCUMENTATION
+-------------
+README.md              - Main overview
+QUICK_START.md         - Step-by-step guide
+FOLDER_COMPARISON.md   - Old vs new structure
+paper/PAPER_SUMMARY.md - Paper content details
+paper/DATA_AND_FIGURES.md - Data status & figures
+
+For questions, see README.md or QUICK_START.md

@@ -1,0 +1,54 @@
+[
+  {
+    "method": "Random",
+    "auroc": 0.5117922882882884,
+    "precision": 0.07933333333333334,
+    "recall": 0.31733333333333336,
+    "f1": 0.12693333333333331,
+    "false_alarm_rate": 0.2985945945945946,
+    "threshold": 0.6895289883937173,
+    "tp": 238,
+    "fp": 2762,
+    "tn": 6488,
+    "fn": 512
+  },
+  {
+    "method": "Entropy Threshold",
+    "auroc": 0.5,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "false_alarm_rate": 0,
+    "threshold": 0.0,
+    "tp": 0,
+    "fp": 0,
+    "tn": 0,
+    "fn": 0
+  },
+  {
+    "method": "Action Variance",
+    "auroc": 0.5,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "false_alarm_rate": 0,
+    "threshold": 0.0,
+    "tp": 0,
+    "fp": 0,
+    "tn": 0,
+    "fn": 0
+  },
+  {
+    "method": "Combined (Entropy + Variance)",
+    "auroc": 0.5,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "false_alarm_rate": 0,
+    "threshold": 0.0,
+    "tp": 0,
+    "fp": 0,
+    "tn": 0,
+    "fn": 0
+  }
+]

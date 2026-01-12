@@ -62,9 +62,11 @@ class SmolVLAEnsemble(nn.Module):
         self.models = nn.ModuleList()
         for i in range(ensemble_size):
             print(f"  Loading model {i+1}/{ensemble_size}...")
+            # Load model from pretrained
             model = SmolVLAPolicy.from_pretrained(model_path)
-            model = model.to(device=self.device)
             model.eval()
+            # Move to specified device
+            model = model.to(device=self.device)
             self.models.append(model)
 
         # Track memory usage
