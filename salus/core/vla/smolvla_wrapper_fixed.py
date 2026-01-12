@@ -305,30 +305,27 @@ class SmolVLAWithInternals(nn.Module):
 
     def _register_hooks(self):
         """Register forward hooks to capture hidden states and logits"""
-        def save_hidden_state(module, input, output):
-            # Capture the last hidden state from the encoder
-            if hasattr(output, 'last_hidden_state'):
-                self.last_hidden_state = output.last_hidden_state
-            elif isinstance(output, tuple) and len(output) > 0:
-                self.last_hidden_state = output[0]
-            elif isinstance(output, torch.Tensor):
-                self.last_hidden_state = output
+        def save_hidden_state_from_input(module, input, output):
+            # Capture the INPUT to action_out_proj as hidden state
+            # Input is typically a tuple (x, ) where x is the hidden representation
+            if isinstance(input, tuple) and len(input) > 0:
+                hidden = input[0]
+                if isinstance(hidden, torch.Tensor):
+                    self.last_hidden_state = hidden
 
         def save_action_logits(module, input, output):
-            # Capture logits before final activation
+            # Capture action logits (output of action_out_proj)
             if isinstance(output, torch.Tensor):
                 self.last_action_logits = output
 
-        # Try to hook into the model architecture
-        # This is a best-effort approach as SmolVLA architecture may vary
-        if hasattr(self.model, 'model'):
-            # Try to hook the language model
-            if hasattr(self.model.model, 'transformer'):
-                self.model.model.transformer.register_forward_hook(save_hidden_state)
-
-        # Try to hook the action head
-        if hasattr(self.model, 'action_head'):
-            self.model.action_head.register_forward_hook(save_action_logits)
+        # Hook into the actual SmolVLA architecture
+        # Capture hidden state from INPUT to action_out_proj (before final projection)
+        # and action logits from OUTPUT of action_out_proj
+        if hasattr(self.model, 'model') and hasattr(self.model.model, 'action_out_proj'):
+            print("   Registering hooks on action_out_proj (for hidden state + logits)")
+            # Register BOTH hooks on the same module
+            self.model.model.action_out_proj.register_forward_hook(save_hidden_state_from_input)
+            self.model.model.action_out_proj.register_forward_hook(save_action_logits)
 
     @torch.no_grad()
     def forward(self, observation: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -351,6 +348,23 @@ class SmolVLAWithInternals(nn.Module):
         self.last_hidden_state = None
         self.last_action_logits = None
 
+        # Tokenize task text if needed
+        if 'task' in observation and 'observation.language.tokens' not in observation:
+            task_text = observation['task']
+            if isinstance(task_text, list):
+                task_text = task_text[0]  # Take first task if batched
+
+            # Tokenize
+            tokens = self.tokenizer(
+                task_text,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=512
+            )
+            observation['observation.language.tokens'] = tokens['input_ids'].to(self.device)
+            observation['observation.language.attention_mask'] = tokens['attention_mask'].bool().to(self.device)
+
         # Run model forward
         action = self.model.select_action(observation)
 
@@ -363,6 +377,13 @@ class SmolVLAWithInternals(nn.Module):
             else:
                 hidden_state = self.last_hidden_state
 
+        # Extract action logits if captured
+        action_logits = self.last_action_logits
+        if action_logits is not None:
+            # Handle sequence dimension if present
+            if len(action_logits.shape) == 3:  # (B, seq_len, action_dim)
+                action_logits = action_logits.mean(dim=1)  # (B, action_dim)
+
         # Pad action from 6D to 7D for Franka
         if action.shape[-1] == 6:
             padding = torch.zeros(action.shape[0], 1, device=action.device, dtype=action.dtype)
@@ -371,7 +392,7 @@ class SmolVLAWithInternals(nn.Module):
         return {
             'action': action,
             'hidden_state': hidden_state,
-            'action_logits': self.last_action_logits
+            'action_logits': action_logits
         }
 
     def __call__(self, observation: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
