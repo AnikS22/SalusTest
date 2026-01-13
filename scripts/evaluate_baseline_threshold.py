@@ -25,7 +25,7 @@ import json
 
 
 def load_dataset(zarr_path):
-    """Load signals and labels from zarr dataset."""
+    """Load signals, labels, and actions from zarr dataset."""
     store = zarr.open(str(zarr_path), mode='r')
 
     signals = store['signals'][:]  # (N, T, 12)
@@ -58,22 +58,33 @@ def load_dataset(zarr_path):
     # Flatten to (num_timesteps, signal_dim) and (num_timesteps, 16)
     valid_signals = []
     valid_labels = []
+    valid_actions = []
 
     for ep in range(num_episodes):
         for t in range(signals.shape[1]):
             if masks[ep, t]:
                 valid_signals.append(signals[ep, t])
                 valid_labels.append(labels[ep, t])
+                valid_actions.append(actions[ep, t])
 
     valid_signals = np.array(valid_signals)  # (num_timesteps, 12)
     valid_labels = np.array(valid_labels)  # (num_timesteps, 16)
+    valid_actions = np.array(valid_actions)  # (num_timesteps, action_dim)
 
     # Binary labels (any failure at any horizon)
     binary_labels = (valid_labels.sum(axis=1) > 0).astype(np.float32)
 
     print(f"  Failure rate: {binary_labels.mean():.2%}")
 
-    return valid_signals, valid_labels, binary_labels
+    return valid_signals, valid_labels, binary_labels, valid_actions
+
+
+def compute_action_entropy(actions):
+    """Compute a softmax entropy proxy from raw action vectors."""
+    action_logits = actions - actions.max(axis=-1, keepdims=True)
+    exp_logits = np.exp(action_logits)
+    probs = exp_logits / (exp_logits.sum(axis=-1, keepdims=True) + 1e-8)
+    return -np.sum(probs * np.log(probs + 1e-10), axis=-1)
 
 
 def evaluate_threshold_method(scores, labels, method_name):
@@ -159,7 +170,7 @@ def main():
 
     # Load dataset
     print("\nLoading dataset...")
-    signals, multi_labels, binary_labels = load_dataset(args.data_path)
+    signals, multi_labels, binary_labels, actions = load_dataset(args.data_path)
 
     # Signal indices (from single_model_extractor.py):
     # [0] Temporal Action Volatility
@@ -198,6 +209,9 @@ def main():
 
     # Use softmax entropy as uncertainty score
     entropy_scores = signals[:, 7]  # Signal index 7 = Softmax Entropy
+    if np.nanstd(entropy_scores) < 1e-6:
+        print("  ⚠️  Entropy signal is near-constant; using action-entropy proxy.")
+        entropy_scores = compute_action_entropy(actions)
     entropy_results = evaluate_threshold_method(entropy_scores, binary_labels, "Entropy Threshold")
     results.append(entropy_results)
 
@@ -214,6 +228,9 @@ def main():
 
     # Use action variance as uncertainty score
     variance_scores = signals[:, 2]  # Signal index 2 = Action Variance
+    if np.nanstd(variance_scores) < 1e-6:
+        print("  ⚠️  Action variance signal is near-constant; using variance from raw actions.")
+        variance_scores = np.var(actions, axis=-1)
     variance_results = evaluate_threshold_method(variance_scores, binary_labels, "Action Variance")
     results.append(variance_results)
 
