@@ -28,11 +28,17 @@ class SmolVLAEnsemble(nn.Module):
     ):
         super().__init__()
 
-        self.device = torch.device(device)
+        # Force single GPU usage to avoid device mismatch
+        import os
+        device_id = device.split(':')[-1] if ':' in device else '0'
+        os.environ['CUDA_VISIBLE_DEVICES'] = device_id
+        
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # Always use cuda:0 after setting CUDA_VISIBLE_DEVICES
         self.ensemble_size = ensemble_size
         self.model_path = Path(model_path).expanduser()
 
-        print(f"\n🤖 Loading SmolVLA ensemble ({ensemble_size} models on {device})...")
+        print(f"\n🤖 Loading SmolVLA ensemble ({ensemble_size} models on {self.device})...")
+        print(f"   CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES', 'all')}")
 
         # Import SmolVLA from lerobot
         try:
@@ -51,19 +57,20 @@ class SmolVLAEnsemble(nn.Module):
             # Load model and explicitly move to single device
             model = SmolVLAPolicy.from_pretrained(str(self.model_path))
 
-            # Move all model parameters and buffers to the target device
+            # Force model to specific device
             model = model.to(self.device)
-
-            # Recursively move all submodules to the device to avoid multi-GPU issues
-            for module in model.modules():
-                for param in module.parameters(recurse=False):
+            
+            # Explicitly set device for all parameters
+            for name, param in model.named_parameters():
+                if param.device != self.device:
                     param.data = param.data.to(self.device)
-                for buffer in module.buffers(recurse=False):
+            for name, buffer in model.named_buffers():
+                if buffer.device != self.device:
                     buffer.data = buffer.data.to(self.device)
 
             model.eval()  # Evaluation mode (but we'll enable dropout for diversity)
             self.models.append(model)
-            print(f"  ✓ Model {i+1}/{ensemble_size} loaded")
+            print(f"  ✓ Model {i+1}/{ensemble_size} loaded on {next(model.parameters()).device}")
 
         print(f"✅ SmolVLA ensemble ready on {device}")
         print(f"   Model size: ~450M parameters per model")
@@ -105,9 +112,20 @@ class SmolVLAEnsemble(nn.Module):
             internals: dict of internal activations (if requested)
         """
 
-        # Ensure inputs are on correct device
-        observation = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v
-                       for k, v in observation.items()}
+        # Ensure inputs are on correct device and in correct format
+        processed_obs = {}
+        for k, v in observation.items():
+            if isinstance(v, torch.Tensor):
+                # Ensure tensor is on correct device
+                if v.device != self.device:
+                    v = v.to(self.device)
+                # Normalize images if they're in [0, 255] range
+                if 'image' in k.lower() and v.max() > 1.1:
+                    v = v.float() / 255.0
+                processed_obs[k] = v
+            else:
+                processed_obs[k] = v
+        observation = processed_obs
 
         # Preprocess text task into language tokens
         if 'task' in observation and 'observation.language.tokens' not in observation:
@@ -137,12 +155,40 @@ class SmolVLAEnsemble(nn.Module):
         all_internals = []
 
         for i, model in enumerate(self.models):
+            # Ensure model is on correct device
+            model = model.to(self.device)
+            
             # Enable dropout for diversity even in eval mode
             model.train()  # Enables dropout
 
             # Forward pass
-            # SmolVLA expects observation dict
-            output = model.select_action(observation)
+            # SmolVLA expects observation dict with proper keys
+            # SmolVLA typically uses only camera1, so use that if available
+            smolvla_obs = {}
+            # Copy camera1 (SmolVLA typically uses single camera)
+            if 'observation.images.camera1' in observation:
+                smolvla_obs['observation.images.camera1'] = observation['observation.images.camera1']
+            elif 'observation.images.camera2' in observation:
+                smolvla_obs['observation.images.camera1'] = observation['observation.images.camera2']
+            elif 'observation.images.camera3' in observation:
+                smolvla_obs['observation.images.camera1'] = observation['observation.images.camera3']
+            
+            # Copy state
+            if 'observation.state' in observation:
+                smolvla_obs['observation.state'] = observation['observation.state']
+            
+            # Copy language tokens if already processed
+            if 'observation.language.tokens' in observation:
+                smolvla_obs['observation.language.tokens'] = observation['observation.language.tokens']
+            if 'observation.language.attention_mask' in observation:
+                smolvla_obs['observation.language.attention_mask'] = observation['observation.language.attention_mask']
+            
+            # Ensure all tensors are on correct device
+            for key, val in smolvla_obs.items():
+                if isinstance(val, torch.Tensor) and val.device != self.device:
+                    smolvla_obs[key] = val.to(self.device)
+            
+            output = model.select_action(smolvla_obs)
 
             # Extract action
             if isinstance(output, dict):
@@ -163,6 +209,10 @@ class SmolVLAEnsemble(nn.Module):
         # Compute statistics
         action_mean = actions.mean(dim=1)  # (B, action_dim)
         action_var = actions.var(dim=1)    # (B, action_dim) - epistemic uncertainty
+
+        # SmolVLA outputs actions in normalized space, but we may need to scale them
+        # For now, keep as-is but clip to reasonable range
+        action_mean = torch.clamp(action_mean, -1.0, 1.0)
 
         result = {
             'action': action_mean,

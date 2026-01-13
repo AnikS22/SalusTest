@@ -151,6 +151,13 @@ def collect_episode(env, vla, signal_extractor, episode_id, max_steps, use_vla=T
                 # Pad action to 7 dimensions if needed
                 if action.shape[-1] == 6:
                     action = torch.cat([action, torch.zeros(action.shape[0], 1, device=action.device)], dim=-1)
+                
+                # Scale action - SmolVLA outputs normalized actions, scale to reasonable joint space
+                # Franka joint limits are roughly [-2.9, 2.9] radians, so scale by ~1.0-2.0
+                action = action * 0.5  # Scale down for smoother control
+                
+                if step == 0:
+                    print(f"   DEBUG: Action shape: {action.shape}, range: [{action.min():.3f}, {action.max():.3f}]")
 
                 # Extract signals
                 signals = signal_extractor.extract(action_dict)
