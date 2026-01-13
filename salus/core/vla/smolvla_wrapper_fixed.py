@@ -91,6 +91,14 @@ class FullSignalExtractor:
         Returns:
             signals: (B, 12) - Full signal vector
         """
+        action = torch.nan_to_num(action, nan=0.0, posinf=0.0, neginf=0.0)
+        if hidden_state is not None:
+            hidden_state = torch.nan_to_num(hidden_state, nan=0.0, posinf=0.0, neginf=0.0)
+        if action_logits is not None:
+            action_logits = torch.nan_to_num(action_logits, nan=0.0, posinf=0.0, neginf=0.0)
+        if robot_state is not None:
+            robot_state = torch.nan_to_num(robot_state, nan=0.0, posinf=0.0, neginf=0.0)
+
         batch_size = action.shape[0]
         signals = []
 
@@ -238,7 +246,12 @@ class FullSignalExtractor:
         # CONCATENATE AND VALIDATE
         # ==============================================
 
-        all_signals = torch.cat(signals, dim=-1)  # (B, 12)
+        all_signals = torch.nan_to_num(
+            torch.cat(signals, dim=-1),
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0
+        )  # (B, 12)
 
         # Update history
         self.action_history.append(action.detach())
