@@ -305,21 +305,21 @@ class SignalExtractor:
             signals: (B, 12) feature vector
         """
 
-        batch_size = vla_output['action'].shape[0]
-        action_dim = vla_output['action'].shape[1]
+        action = torch.nan_to_num(vla_output['action'], nan=0.0, posinf=0.0, neginf=0.0)
+        action_var = torch.nan_to_num(vla_output['action_var'], nan=0.0, posinf=0.0, neginf=0.0)
+        epistemic = torch.nan_to_num(vla_output['epistemic_uncertainty'], nan=0.0, posinf=0.0, neginf=0.0)
+        batch_size = action.shape[0]
+        action_dim = action.shape[1]
         signals = []
 
         # 1. Epistemic uncertainty (scalar)
-        epistemic = vla_output['epistemic_uncertainty']  # (B,)
         signals.append(epistemic.unsqueeze(-1))
 
         # 2. Action magnitude
-        action = vla_output['action']  # (B, action_dim)
         action_mag = torch.norm(action, dim=-1)
         signals.append(action_mag.unsqueeze(-1))
 
         # 3. Action variance (mean across dimensions)
-        action_var = vla_output['action_var']  # (B, action_dim)
         action_var_mean = action_var.mean(dim=-1)
         signals.append(action_var_mean.unsqueeze(-1))
 
@@ -363,7 +363,12 @@ class SignalExtractor:
         if len(self.uncertainty_history) >= 2:
             # Use real uncertainty history (latest up to 5 steps)
             history_window = self.uncertainty_history[-5:]
-            uncertainty_tensor = torch.stack(history_window)
+            uncertainty_tensor = torch.nan_to_num(
+                torch.stack(history_window),
+                nan=0.0,
+                posinf=0.0,
+                neginf=0.0
+            )
 
             # Compute rolling statistics
             unc_mean = uncertainty_tensor.mean(dim=0)
@@ -382,7 +387,7 @@ class SignalExtractor:
             signals.extend([epistemic.unsqueeze(-1)] * 4)
 
         # Concatenate all signals
-        signals = torch.cat(signals, dim=-1)  # (B, 12)
+        signals = torch.nan_to_num(torch.cat(signals, dim=-1), nan=0.0, posinf=0.0, neginf=0.0)  # (B, 12)
 
         return signals
 
@@ -438,5 +443,4 @@ if __name__ == "__main__":
     print("   2. Create data collection script")
     print("   3. Run data collection with real observations")
     print("\n✨ The VLA wrapper will work with real environment observations")
-
 
